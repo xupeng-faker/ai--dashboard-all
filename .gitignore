@@ -24,6 +24,8 @@ bin/
 # Logs
 *.log
 logs/
+.m2
+docker
 
 # OS
 .DS_Store

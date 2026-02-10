@@ -79,5 +79,22 @@
         ORDER BY course_level, course_number
     </select>
 
+    <!-- 获取最新周期ID -->
+    <select id="getLatestPeriodId" resultType="java.lang.Integer">
+        SELECT MAX(period_id) FROM t_employee_sync
+    </select>
+
+    <!-- 根据周期ID查询员工列表 -->
+    <select id="getEmployeesByPeriodId" resultType="com.huawei.aitransform.entity.EmployeeSyncDataVO">
+        SELECT 
+            employee_number AS employeeNumber,
+            last_name AS lastName,
+            lowest_dept_number AS lowestDeptNumber,
+            lowest_dept AS lowestDept,
+            fourthdeptcode AS fourthdeptcode
+        FROM t_employee_sync
+        WHERE period_id = #{periodId}
+    </select>
+
 </mapper>
 
