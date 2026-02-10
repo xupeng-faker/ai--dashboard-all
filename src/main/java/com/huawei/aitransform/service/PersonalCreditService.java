@@ -67,7 +67,13 @@ public class PersonalCreditService {
 
         // 3. 预加载课程信息和部门选课信息
         // 3.1 所有课程信息 (Map: ID -> Credit)
-        List<CoursePlanningInfoVO> allCourses = coursePlanningInfoMapper.getAllCoursePlanningInfo();
+        List<CoursePlanningInfoVO> allCoursesRaw = coursePlanningInfoMapper.getAllCoursePlanningInfo();
+        // 过滤无效课程，保持与PersonalCourseCompletionMapper.getCourseInfoByLevel一致的逻辑
+        // WHERE course_level IS NOT NULL AND course_name IS NOT NULL AND course_number IS NOT NULL
+        List<CoursePlanningInfoVO> allCourses = allCoursesRaw.stream()
+                .filter(c -> c.getCourseLevel() != null && c.getCourseName() != null && c.getCourseNumber() != null)
+                .collect(Collectors.toList());
+
         Map<Integer, BigDecimal> courseCreditMap = new HashMap<>();
         Map<String, BigDecimal> courseNumberCreditMap = new HashMap<>(); // Number -> Credit
         
