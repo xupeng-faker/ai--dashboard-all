@@ -30,6 +30,16 @@
         WHERE employee_number = #{employeeNumber}
     </select>
 
+    <select id="getByEmployeeNumbers" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM t_personal_credit
+        WHERE employee_number IN
+        <foreach collection="employeeNumbers" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </select>
+
     <insert id="insertOrUpdate" parameterType="com.huawei.aitransform.entity.PersonalCredit">
         INSERT INTO t_personal_credit (
             employee_number, last_name, lowest_dept_number, lowest_dept,
@@ -40,6 +50,31 @@
             #{targetCredit}, #{currentCredit}, #{personalCreditCompletionRate},
             #{deptBenchmarkCompletionRate}, #{creditCompletionDate}, NOW(), NOW()
         )
+        ON DUPLICATE KEY UPDATE
+            last_name = VALUES(last_name),
+            lowest_dept_number = VALUES(lowest_dept_number),
+            lowest_dept = VALUES(lowest_dept),
+            target_credit = VALUES(target_credit),
+            current_credit = VALUES(current_credit),
+            personal_credit_completion_rate = VALUES(personal_credit_completion_rate),
+            dept_benchmark_completion_rate = VALUES(dept_benchmark_completion_rate),
+            credit_completion_date = IF(VALUES(credit_completion_date) IS NOT NULL, VALUES(credit_completion_date), credit_completion_date),
+            update_time = NOW()
+    </insert>
+
+    <insert id="batchInsertOrUpdate" parameterType="java.util.List">
+        INSERT INTO t_personal_credit (
+            employee_number, last_name, lowest_dept_number, lowest_dept,
+            target_credit, current_credit, personal_credit_completion_rate,
+            dept_benchmark_completion_rate, credit_completion_date, create_time, update_time
+        ) VALUES 
+        <foreach collection="list" item="item" separator=",">
+        (
+            #{item.employeeNumber}, #{item.lastName}, #{item.lowestDeptNumber}, #{item.lowestDept},
+            #{item.targetCredit}, #{item.currentCredit}, #{item.personalCreditCompletionRate},
+            #{item.deptBenchmarkCompletionRate}, #{item.creditCompletionDate}, NOW(), NOW()
+        )
+        </foreach>
         ON DUPLICATE KEY UPDATE
             last_name = VALUES(last_name),
             lowest_dept_number = VALUES(lowest_dept_number),

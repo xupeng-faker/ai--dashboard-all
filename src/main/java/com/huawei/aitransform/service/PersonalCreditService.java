@@ -107,8 +107,39 @@ public class PersonalCreditService {
         }
 
         // 4. 遍历员工计算学分
+        List<String> employeeNumbers = employees.stream()
+                .map(EmployeeSyncDataVO::getEmployeeNumber)
+                .collect(Collectors.toList());
+        
+        // 批量查询现有记录
+        Map<String, PersonalCredit> existingCreditMap = new HashMap<>();
+        if (!employeeNumbers.isEmpty()) {
+            int batchSize = 1000;
+            for (int i = 0; i < employeeNumbers.size(); i += batchSize) {
+                int end = Math.min(i + batchSize, employeeNumbers.size());
+                List<String> subList = employeeNumbers.subList(i, end);
+                List<PersonalCredit> existingList = personalCreditMapper.getByEmployeeNumbers(subList);
+                for (PersonalCredit pc : existingList) {
+                    existingCreditMap.put(pc.getEmployeeNumber(), pc);
+                }
+            }
+        }
+
+        List<PersonalCredit> toSaveList = new ArrayList<>();
         for (EmployeeSyncDataVO employee : employees) {
-            calculateAndSaveEmployeeCredit(employee, courseCreditMap, courseNumberCreditMap, deptSelectionMap, allCourses);
+            PersonalCredit credit = calculateEmployeeCredit(employee, courseCreditMap, courseNumberCreditMap, deptSelectionMap, allCourses, existingCreditMap);
+            if (credit != null) {
+                toSaveList.add(credit);
+            }
+        }
+
+        // 批量保存
+        if (!toSaveList.isEmpty()) {
+            int batchSize = 1000;
+            for (int i = 0; i < toSaveList.size(); i += batchSize) {
+                int end = Math.min(i + batchSize, toSaveList.size());
+                personalCreditMapper.batchInsertOrUpdate(toSaveList.subList(i, end));
+            }
         }
 
         // 5. 计算并更新部门标杆
@@ -117,11 +148,12 @@ public class PersonalCreditService {
         logger.info("Finished syncing personal credits for {} employees.", employees.size());
     }
 
-    private void calculateAndSaveEmployeeCredit(EmployeeSyncDataVO employee, 
+    private PersonalCredit calculateEmployeeCredit(EmployeeSyncDataVO employee, 
                                                 Map<Integer, BigDecimal> courseCreditMap,
                                                 Map<String, BigDecimal> courseNumberCreditMap,
                                                 Map<String, List<Integer>> deptSelectionMap,
-                                                List<CoursePlanningInfoVO> allCourses) {
+                                                List<CoursePlanningInfoVO> allCourses,
+                                                Map<String, PersonalCredit> existingCreditMap) {
         String empNum = employee.getEmployeeNumber();
         String fourthDeptCode = employee.getFourthdeptcode();
 
@@ -172,7 +204,7 @@ public class PersonalCreditService {
         }
 
         // 准备保存数据
-        PersonalCredit existing = personalCreditMapper.getByEmployeeNumber(empNum);
+        PersonalCredit existing = existingCreditMap.get(empNum);
         PersonalCredit toSave = new PersonalCredit();
         toSave.setEmployeeNumber(empNum);
         toSave.setLastName(employee.getLastName());
@@ -201,7 +233,7 @@ public class PersonalCreditService {
              }
         }
 
-        personalCreditMapper.insertOrUpdate(toSave);
+        return toSave;
     }
 
     private void updateDeptBenchmarks() {

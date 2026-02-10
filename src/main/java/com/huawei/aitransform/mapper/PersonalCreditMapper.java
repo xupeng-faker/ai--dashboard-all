@@ -20,6 +20,20 @@ public interface PersonalCreditMapper {
     PersonalCredit getByEmployeeNumber(@Param("employeeNumber") String employeeNumber);
 
     /**
+     * 根据工号列表批量查询个人学分信息
+     * @param employeeNumbers 工号列表
+     * @return 个人学分信息列表
+     */
+    List<PersonalCredit> getByEmployeeNumbers(@Param("employeeNumbers") List<String> employeeNumbers);
+
+    /**
+     * 批量插入或更新个人学分信息
+     * @param list 个人学分信息列表
+     * @return 影响行数
+     */
+    int batchInsertOrUpdate(@Param("list") List<PersonalCredit> list);
+
+    /**
      * 插入或更新个人学分信息
      * @param personalCredit 个人学分信息
      * @return 影响行数
