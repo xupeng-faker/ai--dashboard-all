@@ -222,6 +222,7 @@ export interface ExpertCertificationSummaryRow {
   baseline: number
   certified: number
   certificationRate: number
+  isMaturityRow?: boolean
 }
 
 export interface ExpertAppointmentSummaryRow {
@@ -233,6 +234,7 @@ export interface ExpertAppointmentSummaryRow {
   appointmentRate: number
   certificationCompliance: number
   baselineCountByRequirement?: number
+  isMaturityRow?: boolean
 }
 
 export interface CadreCertificationSummaryRow {
@@ -244,7 +246,9 @@ export interface CadreCertificationSummaryRow {
   certificateRate: number
   subjectTwoRate: number
   certStandardCount?: number
-  complianceRate: number
+  complianceRate: number | null
+  isMaturityRow?: boolean
+  actualMaturityLevel?: string
 }
 
 export interface CadreAppointmentSummaryRow {
@@ -255,6 +259,8 @@ export interface CadreAppointmentSummaryRow {
   appointedByRequirement: number
   appointmentRate: number
   certificationCompliance: number
+  isMaturityRow?: boolean
+  actualMaturityLevel?: string
 }
 
 export type CertificationRole = RoleValue
@@ -890,4 +896,20 @@ export interface PersonalCourseCompletionResponse {
   empNum: string // 员工工号
   empName: string // 员工姓名
   courseStatistics: CourseCategoryStatistics[] // 各训战分类的课程统计列表
+}
+
+// 个人学分
+export interface PersonalCredit {
+  id: string
+  employeeNumber: string
+  lastName: string
+  lowestDeptNumber: string
+  lowestDept: string
+  targetCredit: number
+  currentCredit: number
+  personalCreditCompletionRate: number
+  deptBenchmarkCompletionRate: number
+  creditCompletionDate?: string
+  createTime?: string
+  updateTime?: string
 }
