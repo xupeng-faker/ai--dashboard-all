@@ -107,6 +107,21 @@ public class PersonalCredit implements Serializable {
     private String sixthdept;
 
     /**
+     * 职位族
+     */
+    private String jobFamily;
+
+    /**
+     * 职位类
+     */
+    private String jobCategory;
+
+    /**
+     * 职位子类
+     */
+    private String jobSubcategory;
+
+    /**
      * 目标学分
      */
     private BigDecimal targetCredit;
@@ -291,6 +306,30 @@ public class PersonalCredit implements Serializable {
 
     public void setSixthdept(String sixthdept) {
         this.sixthdept = sixthdept;
+    }
+
+    public String getJobFamily() {
+        return jobFamily;
+    }
+
+    public void setJobFamily(String jobFamily) {
+        this.jobFamily = jobFamily;
+    }
+
+    public String getJobCategory() {
+        return jobCategory;
+    }
+
+    public void setJobCategory(String jobCategory) {
+        this.jobCategory = jobCategory;
+    }
+
+    public String getJobSubcategory() {
+        return jobSubcategory;
+    }
+
+    public void setJobSubcategory(String jobSubcategory) {
+        this.jobSubcategory = jobSubcategory;
     }
 
     public BigDecimal getTargetCredit() {

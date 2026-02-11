@@ -104,7 +104,8 @@
             fifthdeptcode AS fifthdeptcode,
             fifthdept AS fifthdept,
             sixthdeptcode AS sixthdeptcode,
-            sixthdept AS sixthdept
+            sixthdept AS sixthdept,
+            job_category AS jobCategory
         FROM t_employee_sync
         WHERE period_id = #{periodId}
     </select>

@@ -5,6 +5,7 @@ DELETE FROM `t_mes_ct_dept` WHERE `dept_code` IN ('1001', '1002', '1003', '1004'
 DELETE FROM `t_employee` WHERE `account` IN ('E001234', 'E001236', 'E001237', 'E001238', 'E001239', 'E001240', 'E001241', 'E001242', 'E001243');
 DELETE FROM `cadre_data` WHERE `employee_no` IN ('E001234', 'E001239', 'E001240');
 DELETE FROM `expert_data` WHERE `employee_no` IN ('E001236', 'E001237', 'E001238', 'E001241', 'E001242', 'E001243');
+DELETE FROM `t_personal_credit` WHERE `employee_number` IN ('E001234', 'E001236', 'E001237', 'E001238', 'E001239', 'E001240', 'E001241', 'E001242', 'E001243');
 
 -- 2. 插入部门数据 (t_mes_ct_dept)
 INSERT INTO `t_mes_ct_dept` (`dept_id`, `dept_code`, `dept_name`, `parent_dept_code`, `dept_level`, `enabled`, `create_date`, `lastupdate_date`) VALUES
@@ -65,3 +66,106 @@ INSERT INTO `expert_data` (`name`, `employee_no`, `appointed_position`, `positio
 ('周九', 'E001241', 'FPGA组专家', 'L2'),
 ('郑十', 'E001242', 'AI平台组专家', 'L3'),
 ('钱十一', 'E001243', '诺亚方舟实验室专家', 'L4');
+
+-- 6. 插入个人学分模拟数据 (t_personal_credit)
+INSERT INTO `t_personal_credit` (
+  `employee_number`, `last_name`, `lowest_dept_number`, `lowest_dept`,
+  `l0_department_code`, `l0_department_cn_name`,
+  `firstdeptcode`, `firstdept`,
+  `seconddeptcode`, `seconddept`,
+  `thirddeptcode`, `thirddept`,
+  `fourthdeptcode`, `fourthdept`,
+  `fifthdeptcode`, `fifthdept`,
+  `sixthdeptcode`, `sixthdept`,
+  `job_family`, `job_category`, `job_subcategory`,
+  `target_credit`, `current_credit`, `personal_credit_completion_rate`, `dept_benchmark_completion_rate`, `credit_completion_date`, `create_time`, `update_time`
+) VALUES
+-- 张三
+('E001234', '张三', '3001', '技术支撑组',
+ '001', '华为技术有限公司',
+ '1001', '云核心网运营部',
+ '2001', '亚太运营支撑处',
+ '3001', '技术支撑组',
+ NULL, NULL, NULL, NULL, NULL, NULL,
+ '管理族', '管理类', '行政管理',
+ 100.00, 80.00, 80.00, 90.00, NULL, NOW(), NOW()),
+
+-- 王五
+('E001236', '王五', '3003', 'AI平台组',
+ '001', '华为技术有限公司',
+ '1002', '云核心网研发部',
+ '2002', '网络云平台研发室',
+ '3003', 'AI平台组',
+ NULL, NULL, NULL, NULL, NULL, NULL,
+ '技术族', '软件类', '通用软件开发',
+ 120.00, 120.00, 100.00, 95.00, DATE_SUB(NOW(), INTERVAL 5 DAY), NOW(), NOW()),
+
+-- 赵六
+('E001237', '赵六', '3005', '视觉算法组',
+ '001', '华为技术有限公司',
+ '1002', '云核心网研发部',
+ '2003', 'AI 网络创新室',
+ '3005', '视觉算法组',
+ NULL, NULL, NULL, NULL, NULL, NULL,
+ '技术族', '算法类', '计算机视觉',
+ 150.00, 100.00, 66.67, 85.00, NULL, NOW(), NOW()),
+
+-- 李四
+('E001238', '李四', '3004', '智能运维组',
+ '001', '华为技术有限公司',
+ '1002', '云核心网研发部',
+ '2002', '网络云平台研发室',
+ '3004', '智能运维组',
+ NULL, NULL, NULL, NULL, NULL, NULL,
+ '技术族', '软件类', '大数据开发',
+ 120.00, 130.00, 100.00, 95.00, DATE_SUB(NOW(), INTERVAL 10 DAY), NOW(), NOW()),
+
+-- 周八
+('E001239', '周八', '3006', '知识工程组',
+ '001', '华为技术有限公司',
+ '1003', '云核心网解决方案部',
+ '2004', '云化核心网方案办',
+ '3006', '知识工程组',
+ NULL, NULL, NULL, NULL, NULL, NULL,
+ '技术族', '研究类', '知识图谱',
+ 180.00, 90.00, 50.00, 80.00, NULL, NOW(), NOW()),
+
+-- 孙七
+('E001240', '孙七', '3002', '交付管理组',
+ '001', '华为技术有限公司',
+ '1001', '云核心网运营部',
+ '2001', '亚太运营支撑处',
+ '3002', '交付管理组',
+ NULL, NULL, NULL, NULL, NULL, NULL,
+ '管理族', '项目管理类', '交付项目管理',
+ 100.00, 100.00, 100.00, 90.00, DATE_SUB(NOW(), INTERVAL 2 DAY), NOW(), NOW()),
+
+-- 周九
+('E001241', '周九', '3007', 'FPGA组',
+ '001', '华为技术有限公司',
+ '1004', '云核心网硬件部',
+ '2005', '硬件平台室',
+ '3007', 'FPGA组',
+ NULL, NULL, NULL, NULL, NULL, NULL,
+ '技术族', '硬件类', '逻辑开发',
+ 110.00, 60.00, 54.55, 75.00, NULL, NOW(), NOW()),
+
+-- 郑十
+('E001242', '郑十', '3003', 'AI平台组',
+ '001', '华为技术有限公司',
+ '1002', '云核心网研发部',
+ '2002', '网络云平台研发室',
+ '3003', 'AI平台组',
+ NULL, NULL, NULL, NULL, NULL, NULL,
+ '技术族', '软件类', 'AI工程化',
+ 120.00, 110.00, 91.67, 95.00, NULL, NOW(), NOW()),
+
+-- 钱十一
+('E001243', '钱十一', '3008', '诺亚方舟实验室',
+ '001', '华为技术有限公司',
+ '1005', '2012实验室',
+ '2006', '中央研究院',
+ '3008', '诺亚方舟实验室',
+ NULL, NULL, NULL, NULL, NULL, NULL,
+ '技术族', '研究类', '人工智能基础研究',
+ 200.00, 180.00, 90.00, 90.00, NULL, NOW(), NOW());

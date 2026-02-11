@@ -22,6 +22,9 @@
         <result column="fifthdept" property="fifthdept" jdbcType="VARCHAR"/>
         <result column="sixthdeptcode" property="sixthdeptcode" jdbcType="VARCHAR"/>
         <result column="sixthdept" property="sixthdept" jdbcType="VARCHAR"/>
+        <result column="job_family" property="jobFamily" jdbcType="VARCHAR"/>
+        <result column="job_category" property="jobCategory" jdbcType="VARCHAR"/>
+        <result column="job_subcategory" property="jobSubcategory" jdbcType="VARCHAR"/>
         <result column="target_credit" property="targetCredit" jdbcType="DECIMAL"/>
         <result column="current_credit" property="currentCredit" jdbcType="DECIMAL"/>
         <result column="personal_credit_completion_rate" property="personalCreditCompletionRate" jdbcType="DECIMAL"/>
@@ -36,6 +39,7 @@
         l0_department_code, l0_department_cn_name, firstdeptcode, firstdept, 
         seconddeptcode, seconddept, thirddeptcode, thirddept, fourthdeptcode, fourthdept, 
         fifthdeptcode, fifthdept, sixthdeptcode, sixthdept,
+        job_family, job_category, job_subcategory,
         target_credit, current_credit, personal_credit_completion_rate, 
         dept_benchmark_completion_rate, credit_completion_date, create_time, update_time
     </sql>
@@ -63,6 +67,7 @@
             l0_department_code, l0_department_cn_name, firstdeptcode, firstdept,
             seconddeptcode, seconddept, thirddeptcode, thirddept, fourthdeptcode, fourthdept,
             fifthdeptcode, fifthdept, sixthdeptcode, sixthdept,
+            job_family, job_category, job_subcategory,
             target_credit, current_credit, personal_credit_completion_rate,
             dept_benchmark_completion_rate, credit_completion_date, create_time, update_time
         ) VALUES (
@@ -70,6 +75,7 @@
             #{l0DepartmentCode}, #{l0DepartmentCnName}, #{firstdeptcode}, #{firstdept},
             #{seconddeptcode}, #{seconddept}, #{thirddeptcode}, #{thirddept}, #{fourthdeptcode}, #{fourthdept},
             #{fifthdeptcode}, #{fifthdept}, #{sixthdeptcode}, #{sixthdept},
+            #{jobFamily}, #{jobCategory}, #{jobSubcategory},
             #{targetCredit}, #{currentCredit}, #{personalCreditCompletionRate},
             #{deptBenchmarkCompletionRate}, #{creditCompletionDate}, NOW(), NOW()
         )
@@ -91,6 +97,9 @@
             fifthdept = VALUES(fifthdept),
             sixthdeptcode = VALUES(sixthdeptcode),
             sixthdept = VALUES(sixthdept),
+            job_family = VALUES(job_family),
+            job_category = VALUES(job_category),
+            job_subcategory = VALUES(job_subcategory),
             target_credit = VALUES(target_credit),
             current_credit = VALUES(current_credit),
             personal_credit_completion_rate = VALUES(personal_credit_completion_rate),
@@ -105,6 +114,7 @@
             l0_department_code, l0_department_cn_name, firstdeptcode, firstdept,
             seconddeptcode, seconddept, thirddeptcode, thirddept, fourthdeptcode, fourthdept,
             fifthdeptcode, fifthdept, sixthdeptcode, sixthdept,
+            job_family, job_category, job_subcategory,
             target_credit, current_credit, personal_credit_completion_rate,
             dept_benchmark_completion_rate, credit_completion_date, create_time, update_time
         ) VALUES 
@@ -115,6 +125,7 @@
             #{item.seconddeptcode}, #{item.seconddept}, #{item.thirddeptcode}, #{item.thirddept}, 
             #{item.fourthdeptcode}, #{item.fourthdept}, #{item.fifthdeptcode}, #{item.fifthdept}, 
             #{item.sixthdeptcode}, #{item.sixthdept},
+            #{item.jobFamily}, #{item.jobCategory}, #{item.jobSubcategory},
             #{item.targetCredit}, #{item.currentCredit}, #{item.personalCreditCompletionRate},
             #{item.deptBenchmarkCompletionRate}, #{item.creditCompletionDate}, NOW(), NOW()
         )
@@ -137,6 +148,9 @@
             fifthdept = VALUES(fifthdept),
             sixthdeptcode = VALUES(sixthdeptcode),
             sixthdept = VALUES(sixthdept),
+            job_family = VALUES(job_family),
+            job_category = VALUES(job_category),
+            job_subcategory = VALUES(job_subcategory),
             target_credit = VALUES(target_credit),
             current_credit = VALUES(current_credit),
             personal_credit_completion_rate = VALUES(personal_credit_completion_rate),

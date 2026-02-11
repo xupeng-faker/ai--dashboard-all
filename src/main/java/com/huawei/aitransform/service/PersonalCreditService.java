@@ -230,6 +230,16 @@ public class PersonalCreditService {
         toSave.setFifthdept(employee.getFifthdept());
         toSave.setSixthdeptcode(employee.getSixthdeptcode());
         toSave.setSixthdept(employee.getSixthdept());
+
+        // 解析职位族、职位类、职位子类
+        String jobCategoryStr = employee.getJobCategory();
+        if (jobCategoryStr != null && !jobCategoryStr.isEmpty()) {
+            String[] parts = jobCategoryStr.split("-");
+            if (parts.length >= 1) toSave.setJobFamily(parts[0]);
+            if (parts.length >= 2) toSave.setJobCategory(parts[1]);
+            if (parts.length >= 3) toSave.setJobSubcategory(parts[2]);
+        }
+
         toSave.setTargetCredit(targetCredit);
         toSave.setCurrentCredit(currentCredit);
         toSave.setPersonalCreditCompletionRate(completionRate);

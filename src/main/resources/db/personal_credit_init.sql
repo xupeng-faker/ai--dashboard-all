@@ -1,5 +1,6 @@
 
 -- 个人学分表
+DROP TABLE IF EXISTS `t_personal_credit`;
 CREATE TABLE `t_personal_credit` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `employee_number` varchar(50) NOT NULL COMMENT '工号',
@@ -20,6 +21,9 @@ CREATE TABLE `t_personal_credit` (
   `fifthdept` varchar(255) DEFAULT NULL COMMENT '五层组织名称',
   `sixthdeptcode` varchar(180) DEFAULT NULL COMMENT '六层组织编码',
   `sixthdept` varchar(255) DEFAULT NULL COMMENT '六层组织名称',
+  `job_family` varchar(100) DEFAULT NULL COMMENT '职位族',
+  `job_category` varchar(100) DEFAULT NULL COMMENT '职位类',
+  `job_subcategory` varchar(100) DEFAULT NULL COMMENT '职位子类',
   `target_credit` decimal(10,2) DEFAULT '0.00' COMMENT '目标学分',
   `current_credit` decimal(10,2) DEFAULT '0.00' COMMENT '当前学分',
   `personal_credit_completion_rate` decimal(5,2) DEFAULT '0.00' COMMENT '个人学分达成率',
