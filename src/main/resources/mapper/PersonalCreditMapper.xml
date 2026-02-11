@@ -8,6 +8,20 @@
         <result column="last_name" property="lastName" jdbcType="VARCHAR"/>
         <result column="lowest_dept_number" property="lowestDeptNumber" jdbcType="VARCHAR"/>
         <result column="lowest_dept" property="lowestDept" jdbcType="VARCHAR"/>
+        <result column="l0_department_code" property="l0DepartmentCode" jdbcType="VARCHAR"/>
+        <result column="l0_department_cn_name" property="l0DepartmentCnName" jdbcType="VARCHAR"/>
+        <result column="firstdeptcode" property="firstdeptcode" jdbcType="VARCHAR"/>
+        <result column="firstdept" property="firstdept" jdbcType="VARCHAR"/>
+        <result column="seconddeptcode" property="seconddeptcode" jdbcType="VARCHAR"/>
+        <result column="seconddept" property="seconddept" jdbcType="VARCHAR"/>
+        <result column="thirddeptcode" property="thirddeptcode" jdbcType="VARCHAR"/>
+        <result column="thirddept" property="thirddept" jdbcType="VARCHAR"/>
+        <result column="fourthdeptcode" property="fourthdeptcode" jdbcType="VARCHAR"/>
+        <result column="fourthdept" property="fourthdept" jdbcType="VARCHAR"/>
+        <result column="fifthdeptcode" property="fifthdeptcode" jdbcType="VARCHAR"/>
+        <result column="fifthdept" property="fifthdept" jdbcType="VARCHAR"/>
+        <result column="sixthdeptcode" property="sixthdeptcode" jdbcType="VARCHAR"/>
+        <result column="sixthdept" property="sixthdept" jdbcType="VARCHAR"/>
         <result column="target_credit" property="targetCredit" jdbcType="DECIMAL"/>
         <result column="current_credit" property="currentCredit" jdbcType="DECIMAL"/>
         <result column="personal_credit_completion_rate" property="personalCreditCompletionRate" jdbcType="DECIMAL"/>
@@ -19,6 +33,9 @@
 
     <sql id="Base_Column_List">
         id, employee_number, last_name, lowest_dept_number, lowest_dept, 
+        l0_department_code, l0_department_cn_name, firstdeptcode, firstdept, 
+        seconddeptcode, seconddept, thirddeptcode, thirddept, fourthdeptcode, fourthdept, 
+        fifthdeptcode, fifthdept, sixthdeptcode, sixthdept,
         target_credit, current_credit, personal_credit_completion_rate, 
         dept_benchmark_completion_rate, credit_completion_date, create_time, update_time
     </sql>
@@ -43,10 +60,16 @@
     <insert id="insertOrUpdate" parameterType="com.huawei.aitransform.entity.PersonalCredit">
         INSERT INTO t_personal_credit (
             employee_number, last_name, lowest_dept_number, lowest_dept,
+            l0_department_code, l0_department_cn_name, firstdeptcode, firstdept,
+            seconddeptcode, seconddept, thirddeptcode, thirddept, fourthdeptcode, fourthdept,
+            fifthdeptcode, fifthdept, sixthdeptcode, sixthdept,
             target_credit, current_credit, personal_credit_completion_rate,
             dept_benchmark_completion_rate, credit_completion_date, create_time, update_time
         ) VALUES (
             #{employeeNumber}, #{lastName}, #{lowestDeptNumber}, #{lowestDept},
+            #{l0DepartmentCode}, #{l0DepartmentCnName}, #{firstdeptcode}, #{firstdept},
+            #{seconddeptcode}, #{seconddept}, #{thirddeptcode}, #{thirddept}, #{fourthdeptcode}, #{fourthdept},
+            #{fifthdeptcode}, #{fifthdept}, #{sixthdeptcode}, #{sixthdept},
             #{targetCredit}, #{currentCredit}, #{personalCreditCompletionRate},
             #{deptBenchmarkCompletionRate}, #{creditCompletionDate}, NOW(), NOW()
         )
@@ -54,6 +77,20 @@
             last_name = VALUES(last_name),
             lowest_dept_number = VALUES(lowest_dept_number),
             lowest_dept = VALUES(lowest_dept),
+            l0_department_code = VALUES(l0_department_code),
+            l0_department_cn_name = VALUES(l0_department_cn_name),
+            firstdeptcode = VALUES(firstdeptcode),
+            firstdept = VALUES(firstdept),
+            seconddeptcode = VALUES(seconddeptcode),
+            seconddept = VALUES(seconddept),
+            thirddeptcode = VALUES(thirddeptcode),
+            thirddept = VALUES(thirddept),
+            fourthdeptcode = VALUES(fourthdeptcode),
+            fourthdept = VALUES(fourthdept),
+            fifthdeptcode = VALUES(fifthdeptcode),
+            fifthdept = VALUES(fifthdept),
+            sixthdeptcode = VALUES(sixthdeptcode),
+            sixthdept = VALUES(sixthdept),
             target_credit = VALUES(target_credit),
             current_credit = VALUES(current_credit),
             personal_credit_completion_rate = VALUES(personal_credit_completion_rate),
@@ -65,12 +102,19 @@
     <insert id="batchInsertOrUpdate" parameterType="java.util.List">
         INSERT INTO t_personal_credit (
             employee_number, last_name, lowest_dept_number, lowest_dept,
+            l0_department_code, l0_department_cn_name, firstdeptcode, firstdept,
+            seconddeptcode, seconddept, thirddeptcode, thirddept, fourthdeptcode, fourthdept,
+            fifthdeptcode, fifthdept, sixthdeptcode, sixthdept,
             target_credit, current_credit, personal_credit_completion_rate,
             dept_benchmark_completion_rate, credit_completion_date, create_time, update_time
         ) VALUES 
         <foreach collection="list" item="item" separator=",">
         (
             #{item.employeeNumber}, #{item.lastName}, #{item.lowestDeptNumber}, #{item.lowestDept},
+            #{item.l0DepartmentCode}, #{item.l0DepartmentCnName}, #{item.firstdeptcode}, #{item.firstdept},
+            #{item.seconddeptcode}, #{item.seconddept}, #{item.thirddeptcode}, #{item.thirddept}, 
+            #{item.fourthdeptcode}, #{item.fourthdept}, #{item.fifthdeptcode}, #{item.fifthdept}, 
+            #{item.sixthdeptcode}, #{item.sixthdept},
             #{item.targetCredit}, #{item.currentCredit}, #{item.personalCreditCompletionRate},
             #{item.deptBenchmarkCompletionRate}, #{item.creditCompletionDate}, NOW(), NOW()
         )
@@ -79,6 +123,20 @@
             last_name = VALUES(last_name),
             lowest_dept_number = VALUES(lowest_dept_number),
             lowest_dept = VALUES(lowest_dept),
+            l0_department_code = VALUES(l0_department_code),
+            l0_department_cn_name = VALUES(l0_department_cn_name),
+            firstdeptcode = VALUES(firstdeptcode),
+            firstdept = VALUES(firstdept),
+            seconddeptcode = VALUES(seconddeptcode),
+            seconddept = VALUES(seconddept),
+            thirddeptcode = VALUES(thirddeptcode),
+            thirddept = VALUES(thirddept),
+            fourthdeptcode = VALUES(fourthdeptcode),
+            fourthdept = VALUES(fourthdept),
+            fifthdeptcode = VALUES(fifthdeptcode),
+            fifthdept = VALUES(fifthdept),
+            sixthdeptcode = VALUES(sixthdeptcode),
+            sixthdept = VALUES(sixthdept),
             target_credit = VALUES(target_credit),
             current_credit = VALUES(current_credit),
             personal_credit_completion_rate = VALUES(personal_credit_completion_rate),

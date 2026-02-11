@@ -37,6 +37,76 @@ public class PersonalCredit implements Serializable {
     private String lowestDept;
 
     /**
+     * 公司编码
+     */
+    private String l0DepartmentCode;
+
+    /**
+     * 公司名称
+     */
+    private String l0DepartmentCnName;
+
+    /**
+     * 一层组织编码
+     */
+    private String firstdeptcode;
+
+    /**
+     * 一层组织名称
+     */
+    private String firstdept;
+
+    /**
+     * 二层组织编码
+     */
+    private String seconddeptcode;
+
+    /**
+     * 二层组织名称
+     */
+    private String seconddept;
+
+    /**
+     * 三层组织编码
+     */
+    private String thirddeptcode;
+
+    /**
+     * 三层组织名称
+     */
+    private String thirddept;
+
+    /**
+     * 四层组织编码
+     */
+    private String fourthdeptcode;
+
+    /**
+     * 四层组织名称
+     */
+    private String fourthdept;
+
+    /**
+     * 五层组织编码
+     */
+    private String fifthdeptcode;
+
+    /**
+     * 五层组织名称
+     */
+    private String fifthdept;
+
+    /**
+     * 六层组织编码
+     */
+    private String sixthdeptcode;
+
+    /**
+     * 六层组织名称
+     */
+    private String sixthdept;
+
+    /**
      * 目标学分
      */
     private BigDecimal targetCredit;
@@ -109,6 +179,118 @@ public class PersonalCredit implements Serializable {
 
     public void setLowestDept(String lowestDept) {
         this.lowestDept = lowestDept;
+    }
+
+    public String getL0DepartmentCode() {
+        return l0DepartmentCode;
+    }
+
+    public void setL0DepartmentCode(String l0DepartmentCode) {
+        this.l0DepartmentCode = l0DepartmentCode;
+    }
+
+    public String getL0DepartmentCnName() {
+        return l0DepartmentCnName;
+    }
+
+    public void setL0DepartmentCnName(String l0DepartmentCnName) {
+        this.l0DepartmentCnName = l0DepartmentCnName;
+    }
+
+    public String getFirstdeptcode() {
+        return firstdeptcode;
+    }
+
+    public void setFirstdeptcode(String firstdeptcode) {
+        this.firstdeptcode = firstdeptcode;
+    }
+
+    public String getFirstdept() {
+        return firstdept;
+    }
+
+    public void setFirstdept(String firstdept) {
+        this.firstdept = firstdept;
+    }
+
+    public String getSeconddeptcode() {
+        return seconddeptcode;
+    }
+
+    public void setSeconddeptcode(String seconddeptcode) {
+        this.seconddeptcode = seconddeptcode;
+    }
+
+    public String getSeconddept() {
+        return seconddept;
+    }
+
+    public void setSeconddept(String seconddept) {
+        this.seconddept = seconddept;
+    }
+
+    public String getThirddeptcode() {
+        return thirddeptcode;
+    }
+
+    public void setThirddeptcode(String thirddeptcode) {
+        this.thirddeptcode = thirddeptcode;
+    }
+
+    public String getThirddept() {
+        return thirddept;
+    }
+
+    public void setThirddept(String thirddept) {
+        this.thirddept = thirddept;
+    }
+
+    public String getFourthdeptcode() {
+        return fourthdeptcode;
+    }
+
+    public void setFourthdeptcode(String fourthdeptcode) {
+        this.fourthdeptcode = fourthdeptcode;
+    }
+
+    public String getFourthdept() {
+        return fourthdept;
+    }
+
+    public void setFourthdept(String fourthdept) {
+        this.fourthdept = fourthdept;
+    }
+
+    public String getFifthdeptcode() {
+        return fifthdeptcode;
+    }
+
+    public void setFifthdeptcode(String fifthdeptcode) {
+        this.fifthdeptcode = fifthdeptcode;
+    }
+
+    public String getFifthdept() {
+        return fifthdept;
+    }
+
+    public void setFifthdept(String fifthdept) {
+        this.fifthdept = fifthdept;
+    }
+
+    public String getSixthdeptcode() {
+        return sixthdeptcode;
+    }
+
+    public void setSixthdeptcode(String sixthdeptcode) {
+        this.sixthdeptcode = sixthdeptcode;
+    }
+
+    public String getSixthdept() {
+        return sixthdept;
+    }
+
+    public void setSixthdept(String sixthdept) {
+        this.sixthdept = sixthdept;
     }
 
     public BigDecimal getTargetCredit() {

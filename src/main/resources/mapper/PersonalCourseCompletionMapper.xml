@@ -91,7 +91,20 @@
             last_name AS lastName,
             lowest_dept_number AS lowestDeptNumber,
             lowest_dept AS lowestDept,
-            fourthdeptcode AS fourthdeptcode
+            l0_department_code AS l0DepartmentCode,
+            l0_department_cn_name AS l0DepartmentCnName,
+            firstdeptcode AS firstdeptcode,
+            firstdept AS firstdept,
+            seconddeptcode AS seconddeptcode,
+            seconddept AS seconddept,
+            thirddeptcode AS thirddeptcode,
+            thirddept AS thirddept,
+            fourthdeptcode AS fourthdeptcode,
+            fourthdept AS fourthdept,
+            fifthdeptcode AS fifthdeptcode,
+            fifthdept AS fifthdept,
+            sixthdeptcode AS sixthdeptcode,
+            sixthdept AS sixthdept
         FROM t_employee_sync
         WHERE period_id = #{periodId}
     </select>
