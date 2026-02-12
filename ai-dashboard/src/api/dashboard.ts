@@ -51,6 +51,7 @@ import type {
   TrainingRole,
   TrainingRoleSummaryRow,
   TrainingTask,
+  CreditOverviewVO,
 } from '../types/dashboard'
 import { get } from '../utils/request'
 

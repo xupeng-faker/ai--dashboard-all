@@ -913,3 +913,22 @@ export interface PersonalCredit {
   createTime?: string
   updateTime?: string
 }
+
+export interface CreditOverviewVO {
+  categoryName: string
+  baselineHeadcount: number
+  maxScore: number
+  minScore: number
+  averageCurrentCredit: number
+  averageTargetCredit: number
+  achievementRate: number
+  timeProgress: number
+  isWarning: boolean
+}
+
+export interface CreditStatisticsResponseVO {
+  deptCode: string
+  deptName: string
+  statistics: CreditOverviewVO[]
+  totalStatistics: CreditOverviewVO
+}

@@ -16,7 +16,7 @@ export function useDepartmentFilter() {
       children: [
         {
           label: '云核心网产品线',
-          value: 'CLOUD_CORE_NETWORK',
+          value: '0',
         },
       ],
     },
@@ -31,7 +31,7 @@ export function useDepartmentFilter() {
       children: [
         {
           label: '云核心网产品线',
-          value: 'CLOUD_CORE_NETWORK',
+          value: '0',
         },
       ],
     },
@@ -124,7 +124,7 @@ export function useDepartmentFilter() {
       return
     }
 
-    if (node.value === 'CLOUD_CORE_NETWORK') {
+    if (node.value === '0') {
       try {
         const departments = await fetchDepartmentChildren('0')
         const childNodes = departments.map(convertToDepartmentNode)

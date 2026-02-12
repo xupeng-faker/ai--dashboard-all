@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { computed, onActivated, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElButton, ElCard, ElCascader, ElCol, ElForm, ElFormItem, ElLink, ElRow, ElSelect, ElSkeleton, ElTable, ElTableColumn, ElTag } from 'element-plus'
+import { ElButton, ElCard, ElCascader, ElCol, ElForm, ElFormItem, ElLink, ElRow, ElSelect, ElSkeleton, ElTable, ElTableColumn, ElTag, ElMessage } from 'element-plus'
 import { fetchSchoolDashboard } from '@/api/dashboard'
+import { getPositionStatistics, getDepartmentStatistics } from '@/api/dashboard_credit'
 import { normalizeRoleOptions } from '@/constants/roles'
 import { useDepartmentFilter } from '@/composables/useDepartmentFilter'
+import CreditOverviewTable from '@/components/dashboard/CreditOverviewTable.vue'
 import type {
   SchoolAllStaffSummaryRow,
   SchoolDashboardData,
   SchoolDashboardFilters,
   SchoolRoleSummaryRow,
+  CreditOverviewVO,
 } from '@/types/dashboard'
 
 const router = useRouter()
@@ -17,8 +20,15 @@ const loading = ref(false)
 const dashboardData = ref<SchoolDashboardData | null>(null)
 const filters = reactive<SchoolDashboardFilters>({
   role: '0',
-  departmentPath: [],
+  departmentPath: ['ICT_BG', '0'],
 })
+
+// 学分统计数据
+const positionData = ref<CreditOverviewVO[]>([])
+const departmentData = ref<CreditOverviewVO[]>([])
+const loadingPosition = ref(false)
+const loadingDepartment = ref(false)
+const creditRole = ref('0') // 独立的学分总览角色视图筛选
 
 const {
   departmentTree: departmentOptions,
@@ -50,14 +60,63 @@ const fetchData = async () => {
       role: filters.role,
       departmentPath: filters.departmentPath?.length ? [...filters.departmentPath] : undefined,
     }
-    dashboardData.value = await fetchSchoolDashboard(payload)
+    
+    // 并行获取仪表盘数据和学分统计数据
+    loadingPosition.value = true
+    loadingDepartment.value = true
+    
+    // 分开处理，避免一个失败导致全部失败
+    fetchSchoolDashboard(payload)
+      .then(res => dashboardData.value = res)
+      .catch(err => console.error('Dashboard data error:', err))
+
+    // 获取当前选中的部门编码
+    const currentDeptCode = filters.departmentPath?.length 
+      ? filters.departmentPath[filters.departmentPath.length - 1] 
+      : undefined
+      
+    getPositionStatistics(currentDeptCode, creditRole.value)
+      .then(res => {
+        if (res) {
+          // 合并列表和总计
+          const list = [...res.statistics]
+          if (res.totalStatistics) {
+            list.push(res.totalStatistics)
+          }
+          positionData.value = list
+        } else {
+          positionData.value = []
+        }
+      })
+      .catch(err => console.error('Position stats error:', err))
+      .finally(() => loadingPosition.value = false)
+      
+    getDepartmentStatistics(currentDeptCode, creditRole.value)
+      .then(res => {
+        if (res) {
+           // 合并列表和总计
+          const list = [...res.statistics]
+          if (res.totalStatistics) {
+            list.push(res.totalStatistics)
+          }
+          departmentData.value = list
+        } else {
+          departmentData.value = []
+        }
+      })
+      .catch(err => console.error('Department stats error:', err))
+      .finally(() => loadingDepartment.value = false)
+      
+  } catch (error) {
+    console.error('获取School看板数据失败', error)
+    ElMessage.error('获取部分数据失败，请重试')
   } finally {
     loading.value = false
   }
 }
 
 watch(
-  () => [filters.role, filters.departmentPath],
+  () => [filters.role, filters.departmentPath, creditRole.value],
   () => {
     fetchData()
   },
@@ -101,6 +160,21 @@ const handleAllStaffDrill = (row: SchoolAllStaffSummaryRow, field: string) => {
 
 const handleOverviewDrill = (metric: string) => {
   goToDetail({ type: 'personal', metric })
+}
+
+const handleCreditDrillDown = (row: CreditOverviewVO, field: string) => {
+  if (field === 'baselineHeadcount') {
+    // 简单的下钻逻辑，可以根据需要扩展
+    // 对于部门维度，可能需要进入该部门的详情
+    // 对于职位维度，可能需要进入该职位的详情
+    // 这里暂时复用 SchoolDetail 路由，传递参数
+    goToDetail({
+      type: 'credit-drill',
+      categoryName: row.categoryName,
+      field: field,
+      role: creditRole.value
+    })
+  }
 }
 
 const overviewItems = computed(() => {
@@ -390,6 +464,34 @@ onActivated(() => {
           </el-table-column>
         </el-table>
       </el-card>
+
+      <!-- 新增全员学分总览板块 -->
+      <el-card shadow="hover" class="summary-card">
+        <template #header>
+          <div class="card-header">
+            <h3>全员学分总览</h3>
+            <el-select v-model="creditRole" placeholder="角色视图" style="width: 140px" size="small">
+              <el-option v-for="role in roleOptions" :key="role.value" :label="role.label" :value="role.value" />
+            </el-select>
+          </div>
+        </template>
+        
+        <CreditOverviewTable
+          title="部门学分总览"
+          :data="departmentData"
+          :loading="loadingDepartment"
+          type="department"
+          @drill-down="handleCreditDrillDown"
+        />
+        
+        <CreditOverviewTable
+          title="职位学分总览"
+          :data="positionData"
+          :loading="loadingPosition"
+          type="position"
+          @drill-down="handleCreditDrillDown"
+        />
+      </el-card>
     </template>
   </section>
 </template>
@@ -503,6 +605,12 @@ onActivated(() => {
 
 .summary-card {
   border: none;
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
 
   h3 {
     margin: 0;
