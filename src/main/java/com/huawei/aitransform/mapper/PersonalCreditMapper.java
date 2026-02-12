@@ -1,5 +1,6 @@
 package com.huawei.aitransform.mapper;
 
+import com.huawei.aitransform.entity.CreditOverviewVO;
 import com.huawei.aitransform.entity.PersonalCredit;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -60,4 +61,21 @@ public interface PersonalCreditMapper {
      * 这里提供一个查询所有部门编号的方法
      */
     List<String> getAllLowestDeptNumbers();
+
+    /**
+     * 获取职位学分统计
+     * @param deptCode 部门编码（可选）
+     * @param role 角色 (可选)
+     * @return 统计列表
+     */
+    List<CreditOverviewVO> getPositionStatistics(@Param("deptCode") String deptCode, @Param("role") String role);
+
+    /**
+     * 获取部门学分统计
+     * @param level 部门层级字段名 (e.g. lowest_dept, firstdept)
+     * @param deptCode 部门编码（可选）
+     * @param role 角色 (可选)
+     * @return 统计列表
+     */
+    List<CreditOverviewVO> getDepartmentStatistics(@Param("level") String level, @Param("deptCode") String deptCode, @Param("role") String role);
 }
