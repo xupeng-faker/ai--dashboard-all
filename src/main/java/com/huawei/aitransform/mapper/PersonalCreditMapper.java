@@ -78,4 +78,6 @@ public interface PersonalCreditMapper {
      * @return 统计列表
      */
     List<CreditOverviewVO> getDepartmentStatistics(@Param("level") String level, @Param("deptCode") String deptCode, @Param("role") String role);
+
+    CreditOverviewVO getTotalStatistics(@Param("deptCode") String deptCode, @Param("role") String role);
 }

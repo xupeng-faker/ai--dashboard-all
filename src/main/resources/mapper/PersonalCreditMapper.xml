@@ -254,4 +254,40 @@
         GROUP BY ${level}
     </select>
 
+    <select id="getTotalStatistics" resultType="com.huawei.aitransform.entity.CreditOverviewVO">
+        SELECT 
+            '总计' as categoryName,
+            COUNT(*) as baselineHeadcount,
+            MAX(current_credit) as maxScore,
+            MIN(current_credit) as minScore,
+            ROUND(AVG(current_credit), 2) as averageCurrentCredit,
+            ROUND(AVG(target_credit), 2) as averageTargetCredit,
+            SUM(CASE WHEN current_credit >= target_credit THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as achievementRate
+        FROM t_personal_credit
+        WHERE 1=1
+        <if test="deptCode != null and deptCode != ''">
+            AND (
+                l0_department_code = #{deptCode} OR
+                firstdeptcode = #{deptCode} OR
+                seconddeptcode = #{deptCode} OR
+                thirddeptcode = #{deptCode} OR
+                fourthdeptcode = #{deptCode} OR
+                fifthdeptcode = #{deptCode} OR
+                sixthdeptcode = #{deptCode}
+            )
+        </if>
+        <if test="role != null and role != ''">
+            <choose>
+                <when test="role == '1'">
+                    AND job_category LIKE '%干部%'
+                </when>
+                <when test="role == '2'">
+                    AND job_category LIKE '%专家%'
+                </when>
+                <when test="role == '3'">
+                    AND job_category LIKE '%主管%'
+                </when>
+            </choose>
+        </if>
+    </select>
 </mapper>
