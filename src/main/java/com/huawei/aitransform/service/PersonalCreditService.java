@@ -238,9 +238,28 @@ public class PersonalCreditService {
         toSave.setSixthdeptcode(employee.getSixthdeptcode());
         toSave.setSixthdept(employee.getSixthdept());
 
-        // 直接映射职位类、职位子类
-        toSave.setJobCategory(employee.getJobCategory());
-        toSave.setJobSubcategory(employee.getJobSubcategory());
+        // 处理岗位信息：t_employee_sync.job_category (岗位族-岗位类-岗位子类)
+        String fullJobCategory = employee.getJobCategory();
+        if (fullJobCategory != null && !fullJobCategory.isEmpty()) {
+            String[] parts = fullJobCategory.split("-");
+            if (parts.length >= 3) {
+                toSave.setJobFamily(parts[0]);
+                toSave.setJobCategory(parts[1]);
+                toSave.setJobSubcategory(parts[2]);
+            } else if (parts.length == 2) {
+                toSave.setJobFamily(parts[0]);
+                toSave.setJobCategory(parts[1]);
+                toSave.setJobSubcategory(null);
+            } else {
+                toSave.setJobCategory(fullJobCategory);
+                toSave.setJobFamily(null);
+                toSave.setJobSubcategory(null);
+            }
+        } else {
+            toSave.setJobFamily(null);
+            toSave.setJobCategory(null);
+            toSave.setJobSubcategory(null);
+        }
 
         toSave.setTargetCredit(targetCredit);
         toSave.setCurrentCredit(currentCredit);
