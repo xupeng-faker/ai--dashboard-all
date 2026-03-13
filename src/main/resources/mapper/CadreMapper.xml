@@ -1,0 +1,697 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.huawei.aitransform.mapper.CadreMapper">
+
+    <!-- 根据部门编码列表查询干部工号列表 -->
+    <!-- 只匹配最小部门编码（mini_departname_id）字段 -->
+    <select id="getCadreEmployeeNumbersByDeptCodes" resultType="java.lang.String">
+        SELECT DISTINCT account
+        FROM t_cadre
+        <where>
+            <if test="deptCodes != null and deptCodes.size() &gt; 0">
+                mini_departname_id IN
+                <foreach collection="deptCodes" item="deptCode" open="(" separator="," close=")">
+                    #{deptCode}
+                </foreach>
+            </if>
+            AND account IS NOT NULL
+            AND account != ''
+        </where>
+    </select>
+
+    <!-- 根据部门编码递归查询干部工号列表 -->
+    <!-- 匹配 l2/l3/l4/l5_department_code 字段 -->
+    <select id="getAllCadreEmployeeNumbersByDeptCode" resultType="java.lang.String">
+        SELECT DISTINCT account
+        FROM t_cadre
+        WHERE (
+            l2_department_code = #{deptCode}
+            OR l3_department_code = #{deptCode}
+            OR l4_department_code = #{deptCode}
+            OR l5_department_code = #{deptCode}
+            OR mini_departname_id = #{deptCode}
+        )
+        AND account IS NOT NULL
+        AND account != ''
+    </select>
+
+    <!-- 根据部门编码列表查询干部工号和职位类 -->
+    <!-- 只匹配最小部门编码（mini_departname_id）字段 -->
+    <select id="getCadreEmployeesWithCategoryByDeptCodes" resultType="com.huawei.aitransform.entity.EmployeeWithCategoryVO">
+        SELECT DISTINCT
+            account AS employeeNumber,
+            COALESCE(cadre_competence_category, '未知') AS competenceCategory
+        FROM t_cadre
+        <where>
+            <if test="deptCodes != null and deptCodes.size() &gt; 0">
+                mini_departname_id IN
+                <foreach collection="deptCodes" item="deptCode" open="(" separator="," close=")">
+                    #{deptCode}
+                </foreach>
+            </if>
+            AND account IS NOT NULL
+            AND account != ''
+        </where>
+    </select>
+
+    <!-- 根据部门编码列表查询干部信息（工号、部门编码、职位类、AI成熟度） -->
+    <!-- 只匹配最小部门编码（mini_departname_id）字段 -->
+    <select id="getCadreInfoByDeptCodes" resultType="com.huawei.aitransform.entity.CadreInfoVO">
+        SELECT DISTINCT
+            account AS employeeNumber,
+            mini_departname_id AS deptCode,
+            COALESCE(cadre_competence_category, '未知') AS jobCategory,
+            COALESCE(position_ai_maturity, '未知') AS aiMaturity,
+            COALESCE(is_qualifications_standard, 0) AS isQualificationsStandard,
+            COALESCE(is_cert_standard, 0) AS isCertStandard
+        FROM t_cadre
+        <where>
+            <if test="deptCodes != null and deptCodes.size() &gt; 0">
+                mini_departname_id IN
+                <foreach collection="deptCodes" item="deptCode" open="(" separator="," close=")">
+                    #{deptCode}
+                </foreach>
+            </if>
+            AND account IS NOT NULL
+            AND account != ''
+        </where>
+    </select>
+
+    <!-- 根据部门编码列表、AI成熟度和职位类查询干部认证详细信息 -->
+    <select id="getCadreCertDetailsByConditions" resultType="com.huawei.aitransform.entity.EmployeeDetailVO">
+        SELECT DISTINCT
+            e.last_name AS name,
+            e.employee_number AS employeeNumber,
+            COALESCE(c.cadre_competence_category, '未知') AS competenceCategory,
+            CASE 
+                WHEN e.job_category LIKE '%-%-%' THEN SUBSTRING_INDEX(e.job_category, '-', -1)
+                ELSE NULL
+            END AS competenceSubcategory,
+            c.departname1 AS departname2,
+            c.departname2 AS departname3,
+            c.departname3 AS departname4,
+            c.departname4 AS departname5,
+            c.departname5 AS departname6,
+            cert.cer_title AS certTitle,
+            cert.start_time AS certStartTime,
+            CASE 
+                WHEN exam.emp_num IS NOT NULL THEN 1 
+                ELSE 0 
+            END AS isPassedSubject2,
+            1 AS isCadre,
+            COALESCE(c.is_cert_standard, 0) AS isCertStandard,
+            COALESCE(c.position_ai_maturity, '未知') AS aiMaturity,
+            SUBSTRING_INDEX(dept.dept_name, '/', 1) AS miniDeptName,
+            c.cadre_type AS cadreType
+        FROM t_cadre c
+        INNER JOIN t_employee_sync e ON (e.employee_number = c.account)
+        <choose>
+            <when test="queryType != null and queryType == 2">
+                <!-- queryType=2: 使用 LEFT JOIN，返回所有人员，即使没有AI专业级证书也显示 -->
+                LEFT JOIN (
+                    SELECT DISTINCT
+                        employee_number, 
+                        cer_title,
+                        start_time
+                    FROM dwr_t_cert_record_t
+                    WHERE (status = 1 OR approved_status = 1)
+                    AND (
+                        -- 华为研究类能力认证（专业级，xxx）
+                        cer_title = '华为研究类能力认证（专业级，AI算法技术）'
+                        OR cer_title = '华为研究类能力认证（专业级，AI决策推理）'
+                        OR cer_title = '华为研究类能力认证（专业级，AI图像语言语义）'
+                    )
+                    AND employee_number IS NOT NULL
+                    AND employee_number != ''
+                ) cert ON (e.employee_number = cert.employee_number)
+            </when>
+            <otherwise>
+                <!-- queryType=1: 使用 INNER JOIN，只返回有AI专业级证书的人员 -->
+                INNER JOIN (
+                    SELECT DISTINCT
+                        employee_number, 
+                        cer_title,
+                        start_time
+                    FROM dwr_t_cert_record_t
+                    WHERE (status = 1 OR approved_status = 1)
+                    AND (
+                        -- 华为研究类能力认证（专业级，xxx）
+                        cer_title = '华为研究类能力认证（专业级，AI算法技术）'
+                        OR cer_title = '华为研究类能力认证（专业级，AI决策推理）'
+                        OR cer_title = '华为研究类能力认证（专业级，AI图像语言语义）'
+                    )
+                    AND employee_number IS NOT NULL
+                    AND employee_number != ''
+                ) cert ON (e.employee_number = cert.employee_number)
+            </otherwise>
+        </choose>
+        LEFT JOIN (
+            SELECT DISTINCT emp_num
+            FROM t_exam_record
+            WHERE exam_name IS NOT NULL
+            AND exam_name != ''
+            AND is_pass = 1
+            AND emp_num IS NOT NULL
+            AND emp_num != ''
+        ) exam ON (e.employee_number = exam.emp_num)
+        LEFT JOIN department_info_hrms dept ON (c.mini_departname_id = dept.dept_code AND DATE(dept.update_time) = '2025-11-18')
+        WHERE e.period_id = 20251126
+        <if test="deptCodes != null and deptCodes.size() &gt; 0">
+            AND c.mini_departname_id IN
+            <foreach collection="deptCodes" item="deptCode" open="(" separator="," close=")">
+                #{deptCode}
+            </foreach>
+        </if>
+        <if test="aiMaturity != null and aiMaturity != ''">
+            <choose>
+                <when test="'L5'.equals(aiMaturity)">
+                    <!-- 当aiMaturity为L5时，查询L2和L3的数据（L5代表查询L2和L3） -->
+                    AND c.position_ai_maturity IN ('L2', 'L3')
+                </when>
+                <otherwise>
+                    AND COALESCE(c.position_ai_maturity, '未知') = #{aiMaturity}
+                </otherwise>
+            </choose>
+        </if>
+        <if test="jobCategory != null and jobCategory != ''">
+            AND COALESCE(c.cadre_competence_category, '未知') = #{jobCategory}
+        </if>
+        AND c.account IS NOT NULL
+        AND c.account != ''
+        AND e.employee_number IS NOT NULL
+        AND e.employee_number != ''
+        ORDER BY e.employee_number
+    </select>
+
+    <!-- 根据部门编码列表、AI成熟度和职位类查询干部任职详细信息 -->
+    <!-- queryType=1: 查询有AI相关任职的人员信息 -->
+    <!-- queryType=2: 查询符合条件的所有成员，即使没有AI任职信息也显示人员信息，AI任职信息为空 -->
+    <!-- 每人最多显示一条信息，如果有多条AI任职结果，选取任职级别最高的一条展示 -->
+    <select id="getCadreQualifiedDetailsByConditions" resultType="com.huawei.aitransform.entity.EmployeeDetailVO">
+        SELECT 
+            ANY_VALUE(e.last_name) AS name,
+            e.employee_number AS employeeNumber,
+            ANY_VALUE(COALESCE(c.cadre_competence_category, '未知')) AS competenceCategory,
+            ANY_VALUE(c.departname1) AS departname2,
+            ANY_VALUE(c.departname2) AS departname3,
+            ANY_VALUE(c.departname3) AS departname4,
+            ANY_VALUE(c.departname4) AS departname5,
+            ANY_VALUE(c.departname5) AS departname6,
+            ANY_VALUE(q.competence_family_cn) AS competenceFamilyCn,
+            ANY_VALUE(q.competence_category_cn) AS competenceCategoryCn,
+            ANY_VALUE(q.competence_subcategory_cn) AS competenceSubcategoryCn,
+            ANY_VALUE(q.direction_cn_name) AS directionCnName,
+            ANY_VALUE(q.competence_rating_cn) AS competenceRatingCn,
+            ANY_VALUE(q.competence_grade_cn) AS competenceGradeCn,
+            ANY_VALUE(q.competence_from) AS competenceFrom,
+            ANY_VALUE(q.competence_to) AS competenceTo,
+            ANY_VALUE(COALESCE(c.position_ai_maturity, '未知')) AS aiMaturity,
+            1 AS isCadre,
+            ANY_VALUE(SUBSTRING_INDEX(dept.dept_name, '/', 1)) AS miniDeptName,
+            ANY_VALUE(c.cadre_type) AS cadreType,
+            ANY_VALUE(COALESCE(c.is_qualifications_standard, 0)) AS isQualificationsStandard
+        FROM t_cadre c
+        INNER JOIN t_employee_sync e ON (e.employee_number = c.account)
+        <choose>
+            <when test="queryType != null and queryType == 2">
+                <!-- queryType=2: 使用 LEFT JOIN，返回所有人员，即使没有AI任职也显示 -->
+                LEFT JOIN t_qualifications q ON (
+                    c.account = q.employee_number
+                    AND q.employee_number IS NOT NULL
+                    AND q.employee_number != ''
+                    AND q.direction_cn_name IN (
+                        '数据科学与AI工程（ICT）',
+                        'AI算法及应用（ICT）',
+                        'AI软件工程与工具（ICT）',
+                        'AI系统测试（ICT）'
+                    )
+                    AND q.competence_from IS NOT NULL
+                    AND q.competence_to IS NOT NULL
+                    AND q.competence_from = (
+                        -- 子查询：找到每个员工最高级别的AI任职记录的competence_from
+                        SELECT q2.competence_from
+                        FROM t_qualifications q2
+                        WHERE q2.employee_number = c.account
+                        AND q2.employee_number IS NOT NULL
+                        AND q2.employee_number != ''
+                        AND q2.direction_cn_name IN (
+                            '数据科学与AI工程（ICT）',
+                            'AI算法及应用（ICT）',
+                            'AI软件工程与工具（ICT）',
+                            'AI系统测试（ICT）'
+                        )
+                        AND q2.competence_from IS NOT NULL
+                        AND q2.competence_to IS NOT NULL
+                        ORDER BY 
+                            CASE 
+                                -- 8级最高，依次到1级，初级最低
+                                WHEN q2.competence_rating_cn = '8级' THEN 1
+                                WHEN q2.competence_rating_cn = '7级' THEN 2
+                                WHEN q2.competence_rating_cn = '6级' THEN 3
+                                WHEN q2.competence_rating_cn = '5级' THEN 4
+                                WHEN q2.competence_rating_cn = '4级' THEN 5
+                                WHEN q2.competence_rating_cn = '3级' THEN 6
+                                WHEN q2.competence_rating_cn = '2级' THEN 7
+                                WHEN q2.competence_rating_cn = '1级' THEN 8
+                                WHEN q2.competence_rating_cn = '初级' THEN 9
+                                ELSE 10
+                            END,
+                            q2.competence_from DESC
+                        LIMIT 1
+                    )
+                )
+            </when>
+            <otherwise>
+                <!-- queryType=1: 使用 INNER JOIN，只返回有AI任职记录的干部 -->
+                INNER JOIN t_qualifications q ON (
+                    c.account = q.employee_number
+                    AND q.employee_number IS NOT NULL
+                    AND q.employee_number != ''
+                    AND q.direction_cn_name IN (
+                        '数据科学与AI工程（ICT）',
+                        'AI算法及应用（ICT）',
+                        'AI软件工程与工具（ICT）',
+                        'AI系统测试（ICT）'
+                    )
+                    AND q.competence_from IS NOT NULL
+                    AND q.competence_to IS NOT NULL
+                    AND q.competence_from = (
+                        -- 子查询：找到每个员工最高级别的AI任职记录的competence_from
+                        SELECT q2.competence_from
+                        FROM t_qualifications q2
+                        WHERE q2.employee_number = c.account
+                        AND q2.employee_number IS NOT NULL
+                        AND q2.employee_number != ''
+                        AND q2.direction_cn_name IN (
+                            '数据科学与AI工程（ICT）',
+                            'AI算法及应用（ICT）',
+                            'AI软件工程与工具（ICT）',
+                            'AI系统测试（ICT）'
+                        )
+                        AND q2.competence_from IS NOT NULL
+                        AND q2.competence_to IS NOT NULL
+                        ORDER BY 
+                            CASE 
+                                -- 8级最高，依次到1级，初级最低
+                                WHEN q2.competence_rating_cn = '8级' THEN 1
+                                WHEN q2.competence_rating_cn = '7级' THEN 2
+                                WHEN q2.competence_rating_cn = '6级' THEN 3
+                                WHEN q2.competence_rating_cn = '5级' THEN 4
+                                WHEN q2.competence_rating_cn = '4级' THEN 5
+                                WHEN q2.competence_rating_cn = '3级' THEN 6
+                                WHEN q2.competence_rating_cn = '2级' THEN 7
+                                WHEN q2.competence_rating_cn = '1级' THEN 8
+                                WHEN q2.competence_rating_cn = '初级' THEN 9
+                                ELSE 10
+                            END,
+                            q2.competence_from DESC
+                        LIMIT 1
+                    )
+                )
+            </otherwise>
+        </choose>
+        LEFT JOIN department_info_hrms dept ON (c.mini_departname_id = dept.dept_code AND DATE(dept.update_time) = '2025-11-18')
+        WHERE e.period_id = 20251126
+        <if test="deptCodes != null and deptCodes.size() &gt; 0">
+            AND c.mini_departname_id IN
+            <foreach collection="deptCodes" item="deptCode" open="(" separator="," close=")">
+                #{deptCode}
+            </foreach>
+        </if>
+        <if test="aiMaturity != null and aiMaturity != ''">
+            <choose>
+                <when test="'L5'.equals(aiMaturity)">
+                    <!-- 当aiMaturity为L5时，查询L2和L3的数据（L5代表查询L2和L3） -->
+                    AND c.position_ai_maturity IN ('L2', 'L3')
+                </when>
+                <otherwise>
+                    AND COALESCE(c.position_ai_maturity, '未知') = #{aiMaturity}
+                </otherwise>
+            </choose>
+        </if>
+        <if test="jobCategory != null and jobCategory != ''">
+            AND COALESCE(c.cadre_competence_category, '未知') = #{jobCategory}
+        </if>
+        AND c.account IS NOT NULL
+        AND c.account != ''
+        AND e.employee_number IS NOT NULL
+        AND e.employee_number != ''
+        ORDER BY e.employee_number
+    </select>
+
+    <!-- 查询所有L2、L3干部及其最高AI任职级别、职位类、专业级证书、科目二通过情况 -->
+    <select id="getL2L3CadreWithHighestQualification" resultType="com.huawei.aitransform.entity.CadreQualificationVO">
+        SELECT 
+            c.account AS employeeNumber,
+            c.position_ai_maturity AS aiMaturity,
+            q.competence_rating_cn AS highestQualificationLevel,
+            c.cadre_competence_category AS jobCategory,
+            CASE 
+                WHEN cert.employee_number IS NOT NULL THEN 1 
+                ELSE 0 
+            END AS hasProfessionalCert,
+            CASE 
+                WHEN exam.emp_num IS NOT NULL THEN 1 
+                ELSE 0 
+            END AS hasPassedSubject2
+        FROM t_cadre c
+        INNER JOIN t_employee_sync e ON (e.employee_number = c.account)
+        LEFT JOIN (
+            SELECT 
+                q1.employee_number,
+                q1.competence_rating_cn
+            FROM t_qualifications q1
+            WHERE q1.employee_number IS NOT NULL
+            AND q1.employee_number != ''
+            AND q1.direction_cn_name IN (
+                '数据科学与AI工程（ICT）',
+                'AI算法及应用（ICT）',
+                'AI软件工程与工具（ICT）',
+                'AI系统测试（ICT）'
+            )
+            AND q1.competence_from IS NOT NULL
+            AND q1.competence_to IS NOT NULL
+            AND q1.competence_from = (
+                -- 子查询：找到每个员工最高级别的AI任职记录的competence_from
+                SELECT q2.competence_from
+                FROM t_qualifications q2
+                WHERE q2.employee_number = q1.employee_number
+                AND q2.employee_number IS NOT NULL
+                AND q2.employee_number != ''
+                AND q2.direction_cn_name IN (
+                    '数据科学与AI工程（ICT）',
+                    'AI算法及应用（ICT）',
+                    'AI软件工程与工具（ICT）',
+                    'AI系统测试（ICT）'
+                )
+                AND q2.competence_from IS NOT NULL
+                AND q2.competence_to IS NOT NULL
+                ORDER BY 
+                    CASE 
+                        -- 8级最高，依次到1级，初级最低
+                        WHEN q2.competence_rating_cn = '8级' THEN 1
+                        WHEN q2.competence_rating_cn = '7级' THEN 2
+                        WHEN q2.competence_rating_cn = '6级' THEN 3
+                        WHEN q2.competence_rating_cn = '5级' THEN 4
+                        WHEN q2.competence_rating_cn = '4级' THEN 5
+                        WHEN q2.competence_rating_cn = '3级' THEN 6
+                        WHEN q2.competence_rating_cn = '2级' THEN 7
+                        WHEN q2.competence_rating_cn = '1级' THEN 8
+                        WHEN q2.competence_rating_cn = '初级' THEN 9
+                        ELSE 10
+                    END,
+                    q2.competence_from DESC
+                LIMIT 1
+            )
+        ) q ON (c.account = q.employee_number)
+        LEFT JOIN (
+            SELECT DISTINCT
+                employee_number
+            FROM dwr_t_cert_record_t
+            WHERE (status = 1 OR approved_status = 1)
+            AND (
+                -- 华为研究类能力认证（专业级，xxx）
+                cer_title = '华为研究类能力认证（专业级，AI算法技术）'
+                OR cer_title = '华为研究类能力认证（专业级，AI决策推理）'
+                OR cer_title = '华为研究类能力认证（专业级，AI图像语言语义）'
+            )
+            AND employee_number IS NOT NULL
+                    AND employee_number != ''
+        ) cert ON (e.employee_number = cert.employee_number )
+        LEFT JOIN (
+            SELECT DISTINCT emp_num
+            FROM t_exam_record
+            WHERE exam_code IN ('EXCN022303075ZA20', 'EXCN022303075ZA2E', 'EXCN022303075ZA2A')
+            AND is_pass = 1
+            AND emp_num IS NOT NULL
+            AND emp_num != ''
+        ) exam ON (e.employee_number = exam.emp_num)
+        WHERE c.position_ai_maturity IN ('L2', 'L3')
+        AND c.account IS NOT NULL
+        AND c.account != ''
+        AND e.period_id = 20251126
+        ORDER BY c.account
+    </select>
+
+    <!-- 批量更新干部的is_qualifications_standard字段为1 -->
+    <update id="batchUpdateQualificationStandard">
+        UPDATE t_cadre
+        SET is_qualifications_standard = 1
+        WHERE
+        <foreach collection="cadreList" item="item" separator=" OR ">
+            (account = #{item.employeeNumber}
+            AND position_ai_maturity = #{item.aiMaturity}
+            <choose>
+                <when test="item.jobCategory != null">
+                    AND cadre_competence_category = #{item.jobCategory}
+                </when>
+                <otherwise>
+                    AND cadre_competence_category IS NULL
+                </otherwise>
+            </choose>
+            )
+        </foreach>
+    </update>
+
+    <!-- 批量将干部的is_qualifications_standard字段重置为0 -->
+    <update id="batchResetQualificationStandard">
+        UPDATE t_cadre
+        SET is_qualifications_standard = 0
+        WHERE
+        <foreach collection="cadreList" item="item" separator=" OR ">
+            (account = #{item.employeeNumber}
+            AND position_ai_maturity = #{item.aiMaturity}
+            <choose>
+                <when test="item.jobCategory != null">
+                    AND cadre_competence_category = #{item.jobCategory}
+                </when>
+                <otherwise>
+                    AND cadre_competence_category IS NULL
+                </otherwise>
+            </choose>
+            )
+        </foreach>
+    </update>
+
+    <!-- 批量更新干部的is_cert_standard字段为1 -->
+    <update id="batchUpdateCertStandard">
+        UPDATE t_cadre
+        SET is_cert_standard = 1
+        WHERE
+        <foreach collection="cadreList" item="item" separator=" OR ">
+            (account = #{item.employeeNumber}
+            AND position_ai_maturity = #{item.aiMaturity}
+            <choose>
+                <when test="item.jobCategory != null">
+                    AND cadre_competence_category = #{item.jobCategory}
+                </when>
+                <otherwise>
+                    AND cadre_competence_category IS NULL
+                </otherwise>
+            </choose>
+            )
+        </foreach>
+    </update>
+
+    <!-- 批量将干部的is_cert_standard字段重置为0 -->
+    <update id="batchResetCertStandard">
+        UPDATE t_cadre
+        SET is_cert_standard = 0
+        WHERE
+        <foreach collection="cadreList" item="item" separator=" OR ">
+            (account = #{item.employeeNumber}
+            AND position_ai_maturity = #{item.aiMaturity}
+            <choose>
+                <when test="item.jobCategory != null">
+                    AND cadre_competence_category = #{item.jobCategory}
+                </when>
+                <otherwise>
+                    AND cadre_competence_category IS NULL
+                </otherwise>
+            </choose>
+            )
+        </foreach>
+    </update>
+
+    <!-- 查询所有L2、L3干部及其专业级证书和专业级科目二通过情况 -->
+    <select id="getL2L3CadreWithCertInfo" resultType="com.huawei.aitransform.entity.CadreQualificationVO">
+        SELECT 
+            c.account AS employeeNumber,
+            c.position_ai_maturity AS aiMaturity,
+            c.cadre_competence_category AS jobCategory,
+            CASE 
+                WHEN cert.employee_number IS NOT NULL THEN 1 
+                ELSE 0 
+            END AS hasProfessionalCert,
+            CASE 
+                WHEN exam.emp_num IS NOT NULL THEN 1 
+                ELSE 0 
+            END AS hasPassedProfessionalSubject2
+        FROM t_cadre c
+        INNER JOIN t_employee_sync e ON (e.employee_number = c.account)
+        LEFT JOIN (
+            SELECT DISTINCT
+                employee_number
+            FROM dwr_t_cert_record_t
+            WHERE (status = 1 OR approved_status = 1)
+            AND (
+                -- 华为研究类能力认证（专业级，xxx）
+                cer_title = '华为研究类能力认证（专业级，AI算法技术）'
+                OR cer_title = '华为研究类能力认证（专业级，AI决策推理）'
+                OR cer_title = '华为研究类能力认证（专业级，AI图像语言语义）'
+            )
+            AND employee_number IS NOT NULL
+                    AND employee_number != ''
+        ) cert ON (e.employee_number = cert.employee_number)
+        LEFT JOIN (
+            SELECT DISTINCT emp_num
+            FROM t_exam_record
+            WHERE exam_code IN ('EXCN022303075ZA20', 'EXCN022303075ZA2E', 'EXCN022303075ZA2A')
+            AND is_pass = 1
+            AND emp_num IS NOT NULL
+            AND emp_num != ''
+        ) exam ON (e.employee_number = exam.emp_num)
+        WHERE c.position_ai_maturity IN ('L2', 'L3')
+        AND c.account IS NOT NULL
+        AND c.account != ''
+        AND e.period_id = 20251126
+        ORDER BY c.account
+    </select>
+
+    <!-- 查询所有干部及其最小部门ID -->
+    <select id="getAllCadreWithMiniDepartment" resultType="com.huawei.aitransform.entity.CadreDepartmentRefreshVO">
+        SELECT 
+            account,
+            mini_departname_id AS miniDepartnameId
+        FROM t_cadre
+        WHERE account IS NOT NULL
+          AND account != ''
+          AND mini_departname_id IS NOT NULL
+          AND mini_departname_id != ''
+    </select>
+
+    <!-- 批量更新干部的部门编码字段 -->
+    <update id="batchUpdateCadreDepartmentCodes">
+        UPDATE t_cadre
+        SET l2_department_code = CASE
+            <foreach collection="cadreList" item="cadre">
+                WHEN account = #{cadre.account} AND mini_departname_id = #{cadre.miniDepartnameId} THEN #{cadre.l2DepartmentCode}
+            </foreach>
+        END,
+        l3_department_code = CASE
+            <foreach collection="cadreList" item="cadre">
+                WHEN account = #{cadre.account} AND mini_departname_id = #{cadre.miniDepartnameId} THEN #{cadre.l3DepartmentCode}
+            </foreach>
+        END,
+        l4_department_code = CASE
+            <foreach collection="cadreList" item="cadre">
+                WHEN account = #{cadre.account} AND mini_departname_id = #{cadre.miniDepartnameId} THEN #{cadre.l4DepartmentCode}
+            </foreach>
+        END,
+        l5_department_code = CASE
+            <foreach collection="cadreList" item="cadre">
+                WHEN account = #{cadre.account} AND mini_departname_id = #{cadre.miniDepartnameId} THEN #{cadre.l5DepartmentCode}
+            </foreach>
+        END
+        WHERE (account, mini_departname_id) IN
+        <foreach collection="cadreList" item="cadre" open="(" separator="," close=")">
+            (#{cadre.account}, #{cadre.miniDepartnameId})
+        </foreach>
+    </update>
+
+    <!-- 单个更新干部的部门编码字段 -->
+    <update id="updateCadreDepartmentCodes">
+        UPDATE t_cadre
+        SET l2_department_code = #{l2DepartmentCode},
+            l3_department_code = #{l3DepartmentCode},
+            l4_department_code = #{l4DepartmentCode},
+            l5_department_code = #{l5DepartmentCode}
+        WHERE account = #{account}
+          AND mini_departname_id = #{miniDepartnameId}
+    </update>
+
+    <!-- 根据二级部门编码统计干部岗位数据 -->
+    <select id="getCadreStatisticsByL2DeptCode" resultType="com.huawei.aitransform.entity.CadreStatisticsCountVO">
+        SELECT 
+            COUNT(*) as totalCount,
+            SUM(CASE WHEN position_ai_maturity = 'L2' AND cadre_competence_category = '软件类' THEN 1 ELSE 0 END) as l2SoftwareCount,
+            SUM(CASE WHEN position_ai_maturity = 'L2' AND (cadre_competence_category != '软件类' OR cadre_competence_category IS NULL) THEN 1 ELSE 0 END) as l2NonSoftwareCount,
+            SUM(CASE WHEN position_ai_maturity = 'L3' AND cadre_competence_category = '软件类' THEN 1 ELSE 0 END) as l3SoftwareCount,
+            SUM(CASE WHEN position_ai_maturity = 'L3' AND (cadre_competence_category != '软件类' OR cadre_competence_category IS NULL) THEN 1 ELSE 0 END) as l3NonSoftwareCount
+        FROM t_cadre 
+        WHERE l2_department_code = #{deptCode}
+    </select>
+
+    <!-- 根据三级部门编码统计干部岗位数据 -->
+    <select id="getCadreStatisticsByL3DeptCode" resultType="com.huawei.aitransform.entity.CadreStatisticsCountVO">
+        SELECT 
+            COUNT(*) as totalCount,
+            SUM(CASE WHEN position_ai_maturity = 'L2' AND cadre_competence_category = '软件类' THEN 1 ELSE 0 END) as l2SoftwareCount,
+            SUM(CASE WHEN position_ai_maturity = 'L2' AND (cadre_competence_category != '软件类' OR cadre_competence_category IS NULL) THEN 1 ELSE 0 END) as l2NonSoftwareCount,
+            SUM(CASE WHEN position_ai_maturity = 'L3' AND cadre_competence_category = '软件类' THEN 1 ELSE 0 END) as l3SoftwareCount,
+            SUM(CASE WHEN position_ai_maturity = 'L3' AND (cadre_competence_category != '软件类' OR cadre_competence_category IS NULL) THEN 1 ELSE 0 END) as l3NonSoftwareCount
+        FROM t_cadre 
+        WHERE l3_department_code = #{deptCode}
+    </select>
+
+    <!-- 根据四级部门编码统计干部岗位数据 -->
+    <select id="getCadreStatisticsByL4DeptCode" resultType="com.huawei.aitransform.entity.CadreStatisticsCountVO">
+        SELECT 
+            COUNT(*) as totalCount,
+            SUM(CASE WHEN position_ai_maturity = 'L2' AND cadre_competence_category = '软件类' THEN 1 ELSE 0 END) as l2SoftwareCount,
+            SUM(CASE WHEN position_ai_maturity = 'L2' AND (cadre_competence_category != '软件类' OR cadre_competence_category IS NULL) THEN 1 ELSE 0 END) as l2NonSoftwareCount,
+            SUM(CASE WHEN position_ai_maturity = 'L3' AND cadre_competence_category = '软件类' THEN 1 ELSE 0 END) as l3SoftwareCount,
+            SUM(CASE WHEN position_ai_maturity = 'L3' AND (cadre_competence_category != '软件类' OR cadre_competence_category IS NULL) THEN 1 ELSE 0 END) as l3NonSoftwareCount
+        FROM t_cadre 
+        WHERE l4_department_code = #{deptCode}
+    </select>
+
+    <!-- 根据二级部门编码统计干部AI任职认证数据 -->
+    <select id="getCadreAiCertStatisticsByL2DeptCode" resultType="com.huawei.aitransform.entity.CadreAiCertCountVO">
+        SELECT 
+            COUNT(*) as totalCadreCount,
+            SUM(CASE WHEN position_ai_maturity IN ('L2', 'L3') THEN 1 ELSE 0 END) as l2L3Count,
+            SUM(CASE WHEN position_ai_maturity = 'L2' AND cadre_competence_category = '软件类' THEN 1 ELSE 0 END) as softwareL2Count,
+            SUM(CASE WHEN position_ai_maturity = 'L3' AND cadre_competence_category = '软件类' THEN 1 ELSE 0 END) as softwareL3Count,
+            SUM(CASE WHEN position_ai_maturity IN ('L2', 'L3') AND (cadre_competence_category != '软件类' OR cadre_competence_category IS NULL) THEN 1 ELSE 0 END) as nonSoftwareL2L3Count,
+            SUM(CASE WHEN position_ai_maturity IN ('L2', 'L3') AND is_qualifications_standard = 1 AND is_cert_standard = 1 THEN 1 ELSE 0 END) as qualifiedL2L3Count
+        FROM t_cadre 
+        WHERE l2_department_code = #{deptCode}
+    </select>
+
+    <!-- 根据三级部门编码统计干部AI任职认证数据 -->
+    <select id="getCadreAiCertStatisticsByL3DeptCode" resultType="com.huawei.aitransform.entity.CadreAiCertCountVO">
+        SELECT 
+            COUNT(*) as totalCadreCount,
+            SUM(CASE WHEN position_ai_maturity IN ('L2', 'L3') THEN 1 ELSE 0 END) as l2L3Count,
+            SUM(CASE WHEN position_ai_maturity = 'L2' AND cadre_competence_category = '软件类' THEN 1 ELSE 0 END) as softwareL2Count,
+            SUM(CASE WHEN position_ai_maturity = 'L3' AND cadre_competence_category = '软件类' THEN 1 ELSE 0 END) as softwareL3Count,
+            SUM(CASE WHEN position_ai_maturity IN ('L2', 'L3') AND (cadre_competence_category != '软件类' OR cadre_competence_category IS NULL) THEN 1 ELSE 0 END) as nonSoftwareL2L3Count,
+            SUM(CASE WHEN position_ai_maturity IN ('L2', 'L3') AND is_qualifications_standard = 1 AND is_cert_standard = 1 THEN 1 ELSE 0 END) as qualifiedL2L3Count
+        FROM t_cadre 
+        WHERE l3_department_code = #{deptCode}
+    </select>
+
+    <!-- 根据四级部门编码统计干部AI任职认证数据 -->
+    <select id="getCadreAiCertStatisticsByL4DeptCode" resultType="com.huawei.aitransform.entity.CadreAiCertCountVO">
+        SELECT 
+            COUNT(*) as totalCadreCount,
+            SUM(CASE WHEN position_ai_maturity IN ('L2', 'L3') THEN 1 ELSE 0 END) as l2L3Count,
+            SUM(CASE WHEN position_ai_maturity = 'L2' AND cadre_competence_category = '软件类' THEN 1 ELSE 0 END) as softwareL2Count,
+            SUM(CASE WHEN position_ai_maturity = 'L3' AND cadre_competence_category = '软件类' THEN 1 ELSE 0 END) as softwareL3Count,
+            SUM(CASE WHEN position_ai_maturity IN ('L2', 'L3') AND (cadre_competence_category != '软件类' OR cadre_competence_category IS NULL) THEN 1 ELSE 0 END) as nonSoftwareL2L3Count,
+            SUM(CASE WHEN position_ai_maturity IN ('L2', 'L3') AND is_qualifications_standard = 1 AND is_cert_standard = 1 THEN 1 ELSE 0 END) as qualifiedL2L3Count
+        FROM t_cadre 
+        WHERE l4_department_code = #{deptCode}
+    </select>
+
+    <!-- 查询所有干部的工号列表 -->
+    <select id="getAllCadreEmployeeNumbers" resultType="java.lang.String">
+        SELECT DISTINCT account
+        FROM t_cadre
+        WHERE account IS NOT NULL
+        AND account != ''
+    </select>
+
+</mapper>

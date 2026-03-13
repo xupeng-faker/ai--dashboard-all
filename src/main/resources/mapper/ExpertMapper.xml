@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.huawei.aitransform.mapper.ExpertMapper">
+
+    <!-- 根据部门编码和部门层级查询L2/L3专家信息（关联t_employee_sync表获取job_category） -->
+    <!-- Mod: Added choose logic for includeAllMaturity -->
+    <select id="getExpertInfoByDeptCode" resultType="com.huawei.aitransform.entity.ExpertInfoVO">
+        SELECT DISTINCT
+            exp.account AS employeeNumber,
+            exp.position_ai_maturity AS aiMaturity,
+            e.job_category AS jobCategory,
+            COALESCE(exp.is_qualifications_standard, 0) AS isQualificationsStandard
+        FROM t_expert exp
+        INNER JOIN t_employee_sync e ON (exp.account = e.employee_number)
+        WHERE e.period_id = 20251126
+        
+        <choose>
+            <when test="includeAllMaturity != null and includeAllMaturity == true">
+                <!-- 查询所有成熟度（L1、L2、L3） -->
+                AND exp.position_ai_maturity IN ('L1', 'L2', 'L3')
+            </when>
+            <otherwise>
+                <!-- 默认只查询L2和L3 -->
+                AND exp.position_ai_maturity IN ('L2', 'L3')
+            </otherwise>
+        </choose>
+        AND exp.account IS NOT NULL
+        AND exp.account != ''
+        AND e.employee_number IS NOT NULL
+        AND e.employee_number != ''
+        <if test="deptCode != null and deptCode != ''">
+            <choose>
+                <!-- 根据部门层级使用对应的部门字段进行过滤 -->
+                <when test="deptLevel == 1">
+                    AND e.firstdeptcode = #{deptCode}
+                </when>
+                <when test="deptLevel == 2">
+                    AND e.seconddeptcode = #{deptCode}
+                </when>
+                <when test="deptLevel == 3">
+                    AND e.thirddeptcode = #{deptCode}
+                </when>
+                <when test="deptLevel == 4">
+                    AND e.fourthdeptcode = #{deptCode}
+                </when>
+                <when test="deptLevel == 5">
+                    AND e.fifthdeptcode = #{deptCode}
+                </when>
+                <when test="deptLevel == 6">
+                    AND e.sixthdeptcode = #{deptCode}
+                </when>
+                <when test="deptLevel == 7">
+                    <!-- 如果deptLevel为7，已经是最高层级，无法再查询 -->
+                    AND 1 = 0
+                </when>
+            </choose>
+        </if>
+    </select>
+
+    <!-- 查询所有L2、L3专家及其最高AI任职级别和职位类 -->
+    <select id="getL2L3ExpertWithHighestQualification" resultType="com.huawei.aitransform.entity.ExpertQualificationVO">
+        SELECT 
+            exp.account AS employeeNumber,
+            COALESCE(exp.position_ai_maturity, '未知') AS aiMaturity,
+            q.competence_rating_cn AS highestQualificationLevel,
+            COALESCE(e.job_category, '未知') AS jobCategory,
+            exp.orig_position_grade AS origPositionGrade
+        FROM t_expert exp
+        INNER JOIN t_employee_sync e ON (e.employee_number = exp.account)
+        LEFT JOIN (
+            SELECT 
+                q1.employee_number,
+                q1.competence_rating_cn
+            FROM t_qualifications q1
+            WHERE q1.employee_number IS NOT NULL
+            AND q1.employee_number != ''
+            AND q1.direction_cn_name IN (
+                '数据科学与AI工程（ICT）',
+                'AI算法及应用（ICT）',
+                'AI软件工程与工具（ICT）',
+                'AI系统测试（ICT）'
+            )
+            AND q1.competence_from IS NOT NULL
+            AND q1.competence_to IS NOT NULL
+            AND q1.competence_from = (
+                -- 子查询：找到每个员工最高级别的AI任职记录的competence_from
+                SELECT q2.competence_from
+                FROM t_qualifications q2
+                WHERE q2.employee_number = q1.employee_number
+                AND q2.employee_number IS NOT NULL
+                AND q2.employee_number != ''
+                AND q2.direction_cn_name IN (
+                    '数据科学与AI工程（ICT）',
+                    'AI算法及应用（ICT）',
+                    'AI软件工程与工具（ICT）',
+                    'AI系统测试（ICT）'
+                )
+                AND q2.competence_from IS NOT NULL
+                AND q2.competence_to IS NOT NULL
+                ORDER BY 
+                    CASE 
+                        -- 8级最高，依次到1级，初级最低
+                        WHEN q2.competence_rating_cn = '8级' THEN 1
+                        WHEN q2.competence_rating_cn = '7级' THEN 2
+                        WHEN q2.competence_rating_cn = '6级' THEN 3
+                        WHEN q2.competence_rating_cn = '5级' THEN 4
+                        WHEN q2.competence_rating_cn = '4级' THEN 5
+                        WHEN q2.competence_rating_cn = '3级' THEN 6
+                        WHEN q2.competence_rating_cn = '2级' THEN 7
+                        WHEN q2.competence_rating_cn = '1级' THEN 8
+                        WHEN q2.competence_rating_cn = '初级' THEN 9
+                        ELSE 10
+                    END,
+                    q2.competence_from DESC
+                LIMIT 1
+            )
+        ) q ON (exp.account = q.employee_number)
+        WHERE exp.position_ai_maturity IN ('L2', 'L3')
+        AND exp.account IS NOT NULL
+        AND exp.account != ''
+        AND e.period_id = 20251126
+        AND e.employee_number IS NOT NULL
+        AND e.employee_number != ''
+        ORDER BY exp.account
+    </select>
+
+    <!-- 批量更新专家的is_qualifications_standard字段为1 -->
+    <update id="batchUpdateQualificationStandard">
+        UPDATE t_expert
+        SET is_qualifications_standard = 1
+        WHERE account IN
+        <foreach collection="employeeNumbers" item="employeeNumber" open="(" separator="," close=")">
+            #{employeeNumber}
+        </foreach>
+    </update>
+
+    <!-- 批量将专家的is_qualifications_standard字段重置为0 -->
+    <update id="batchResetQualificationStandard">
+        UPDATE t_expert
+        SET is_qualifications_standard = 0
+        WHERE account IN
+        <foreach collection="employeeNumbers" item="employeeNumber" open="(" separator="," close=")">
+            #{employeeNumber}
+        </foreach>
+    </update>
+
+    <!-- 查询所有L2、L3专家及其专业级证书和科目二通过情况 -->
+    <select id="getL2L3ExpertWithCertInfo" resultType="com.huawei.aitransform.entity.ExpertQualificationVO">
+        SELECT 
+            exp.account AS employeeNumber,
+            COALESCE(exp.position_ai_maturity, '未知') AS aiMaturity,
+            COALESCE(e.job_category, '未知') AS jobCategory,
+            CASE 
+                WHEN cert.employee_number IS NOT NULL THEN 1 
+                ELSE 0 
+            END AS hasProfessionalCert,
+            CASE 
+                WHEN exam.emp_num IS NOT NULL THEN 1 
+                ELSE 0 
+            END AS hasPassedSubject2
+        FROM t_expert exp
+        INNER JOIN t_employee_sync e ON (e.employee_number = exp.account)
+        LEFT JOIN (
+            SELECT DISTINCT
+                employee_number
+            FROM dwr_t_cert_record_t
+            WHERE (status = 1 OR approved_status = 1)
+            AND (
+                -- 华为研究类能力认证（专业级，xxx）
+                cer_title = '华为研究类能力认证（专业级，AI算法技术）'
+                OR cer_title = '华为研究类能力认证（专业级，AI决策推理）'
+                OR cer_title = '华为研究类能力认证（专业级，AI图像语言语义）'
+            )
+            AND employee_number IS NOT NULL
+            AND employee_number != ''
+        ) cert ON (e.employee_number = cert.employee_number)
+        LEFT JOIN (
+            SELECT DISTINCT emp_num
+            FROM t_exam_record
+            WHERE exam_code IN ('EXCN022303075ZA20', 'EXCN022303075ZA2E', 'EXCN022303075ZA2A')
+            AND is_pass = 1
+            AND emp_num IS NOT NULL
+            AND emp_num != ''
+        ) exam ON (e.employee_number = exam.emp_num)
+        WHERE exp.position_ai_maturity IN ('L2', 'L3')
+        AND exp.account IS NOT NULL
+        AND exp.account != ''
+        AND e.period_id = 20251126
+        ORDER BY exp.account
+    </select>
+
+    <!-- 批量更新专家的is_cert_standard字段为1 -->
+    <update id="batchUpdateCertStandard">
+        UPDATE t_expert
+        SET is_cert_standard = 1
+        WHERE account IN
+        <foreach collection="employeeNumbers" item="employeeNumber" open="(" separator="," close=")">
+            #{employeeNumber}
+        </foreach>
+    </update>
+
+    <!-- 批量将专家的is_cert_standard字段重置为0 -->
+    <update id="batchResetCertStandard">
+        UPDATE t_expert
+        SET is_cert_standard = 0
+        WHERE account IN
+        <foreach collection="employeeNumbers" item="employeeNumber" open="(" separator="," close=")">
+            #{employeeNumber}
+        </foreach>
+    </update>
+
+    <!-- 根据部门层级和部门ID列表查询专家工号列表 -->
+    <!-- 注意：查询的部门层级为传入的deptLevel，即deptLevel=1时查询firstdeptcode -->
+    <select id="getExpertNumbersByDeptLevel" resultType="java.lang.String">
+        SELECT DISTINCT exp.account AS employeeNumber
+        FROM t_expert exp
+        INNER JOIN t_employee_sync e ON (exp.account = e.employee_number)
+        WHERE e.period_id = 20251126
+        AND exp.account IS NOT NULL
+        AND exp.account != ''
+        AND e.employee_number IS NOT NULL
+        AND e.employee_number != ''
+        <choose>
+            <when test="deptLevel == 1">
+                AND e.firstdeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 2">
+                AND e.seconddeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 3">
+                AND e.thirddeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 4">
+                AND e.fourthdeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 5">
+                AND e.fifthdeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 6">
+                AND e.sixthdeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 7">
+                <!-- 如果deptLevel为7，已经是最高层级，无法再查询 -->
+                AND 1 = 0
+            </when>
+        </choose>
+    </select>
+
+    <!-- 根据部门层级和部门编码列表查询专家工号和职位族 -->
+    <!-- 注意：查询的部门层级为传入的deptLevel，即deptLevel=1时查询firstdeptcode -->
+    <!-- 只查询当前部门下的人员，不包含子部门 -->
+    <select id="getExpertsWithJobCategoryByDeptCodes" resultType="com.huawei.aitransform.entity.EmployeeWithCategoryVO">
+        SELECT DISTINCT 
+            exp.account AS employeeNumber,
+            e.job_category AS competenceCategory
+        FROM t_expert exp
+        INNER JOIN t_employee_sync e ON (exp.account = e.employee_number)
+        WHERE e.period_id = 20251126
+        AND exp.account IS NOT NULL
+        AND exp.account != ''
+        AND e.employee_number IS NOT NULL
+        AND e.employee_number != ''
+        <choose>
+            <when test="deptLevel == 1">
+                AND e.firstdeptcode IN
+                <foreach collection="deptCodes" item="deptCode" open="(" separator="," close=")">
+                    #{deptCode}
+                </foreach>
+            </when>
+            <when test="deptLevel == 2">
+                AND e.seconddeptcode IN
+                <foreach collection="deptCodes" item="deptCode" open="(" separator="," close=")">
+                    #{deptCode}
+                </foreach>
+            </when>
+            <when test="deptLevel == 3">
+                AND e.thirddeptcode IN
+                <foreach collection="deptCodes" item="deptCode" open="(" separator="," close=")">
+                    #{deptCode}
+                </foreach>
+            </when>
+            <when test="deptLevel == 4">
+                AND e.fourthdeptcode IN
+                <foreach collection="deptCodes" item="deptCode" open="(" separator="," close=")">
+                    #{deptCode}
+                </foreach>
+            </when>
+            <when test="deptLevel == 5">
+                AND e.fifthdeptcode IN
+                <foreach collection="deptCodes" item="deptCode" open="(" separator="," close=")">
+                    #{deptCode}
+                </foreach>
+            </when>
+            <when test="deptLevel == 6">
+                AND e.sixthdeptcode IN
+                <foreach collection="deptCodes" item="deptCode" open="(" separator="," close=")">
+                    #{deptCode}
+                </foreach>
+            </when>
+            <when test="deptLevel == 7">
+                <!-- 如果deptLevel为7，已经是最高层级，无法再查询 -->
+                AND 1 = 0
+            </when>
+        </choose>
+    </select>
+</mapper>

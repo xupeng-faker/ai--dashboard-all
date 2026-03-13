@@ -1,0 +1,405 @@
+package com.huawei.aitransform.service.impl;
+
+import com.huawei.aitransform.entity.*;
+import com.huawei.aitransform.mapper.CadreMapper;
+import com.huawei.aitransform.mapper.DepartmentInfoMapper;
+import com.huawei.aitransform.service.CadrePositionOverviewService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+/**
+ * 干部岗位概述统计Service实现类
+ */
+@Service
+public class CadrePositionOverviewServiceImpl implements CadrePositionOverviewService {
+
+    @Autowired
+    private DepartmentInfoMapper departmentInfoMapper;
+
+    @Autowired
+    private CadreMapper cadreMapper;
+
+    /**
+     * 云核心网产品线部门编码
+     */
+    private static final String CLOUD_CORE_PRODUCT_LINE_CODE = "031562";
+
+    /**
+     * 研发管理部部门编码
+     */
+    private static final String R_AND_D_MANAGEMENT_DEPT_CODE = "030681";
+
+    /**
+     * 四级部门排序列表（研发管理部下属）
+     */
+    private static final List<String> L4_DEPARTMENT_ORDER = Arrays.asList(
+            "分组核心网产品部",
+            "云核心网CS&IMS产品部",
+            "融合视频产品部",
+            "云核心网软件平台部",
+            "云核心网解决方案增值开发部",
+            "云核心网解决方案部",
+            "云核心网架构与设计部",
+            "云核心网技术规划部",
+            "云核心网研究部",
+            "云核心网产品工程与IT装备部",
+            "云核心网产品流程与质量部"
+    );
+
+    /**
+     * 三级部门排序列表
+     */
+    private static final List<String> L3_DEPARTMENT_ORDER = Arrays.asList(
+            "云核心网研发管理部",
+            "云核心网营销工程部",
+            "云核心网战略与业务发展部",
+            "分组核心网领域",
+            "云核心网CS&IMS领域",
+            "融合视频领域",
+            "云核心网MAE领域",
+            "云核心网质量与运营部",
+            "云核心网人力资源部",
+            "云核心网首席信息安全与共享官"
+    );
+
+    @Override
+    public CadrePositionOverviewResponseVO getCadrePositionOverview() {
+        CadrePositionOverviewResponseVO response = new CadrePositionOverviewResponseVO();
+        List<DepartmentPositionStatisticsVO> departmentList = new ArrayList<>();
+
+        // 1. 获取云核心网产品线下的所有三级部门
+        List<DepartmentInfoVO> l3Depts = departmentInfoMapper.getLevel3DepartmentsUnderParent(CLOUD_CORE_PRODUCT_LINE_CODE);
+        if (l3Depts != null) {
+            // 对三级部门进行排序
+            l3Depts.sort((o1, o2) -> {
+                String name1 = o1.getDeptName();
+                String name2 = o2.getDeptName();
+                int index1 = L3_DEPARTMENT_ORDER.indexOf(name1);
+                int index2 = L3_DEPARTMENT_ORDER.indexOf(name2);
+
+                if (index1 != -1 && index2 != -1) {
+                    return Integer.compare(index1, index2);
+                } else if (index1 != -1) {
+                    return -1; // o1 在列表中，排前面
+                } else if (index2 != -1) {
+                    return 1; // o2 在列表中，排前面
+                } else {
+                    return 0; // 都不在列表中，保持原序
+                }
+            });
+
+            for (DepartmentInfoVO dept : l3Depts) {
+                // 统计每个三级部门的数据
+                CadreStatisticsCountVO countVO = cadreMapper.getCadreStatisticsByL3DeptCode(dept.getDeptCode());
+                
+                if (countVO != null) {
+                    DepartmentPositionStatisticsVO deptVO = createDepartmentPositionStatisticsVO(
+                            dept.getDeptCode(), dept.getDeptName(), "L3", countVO);
+                    
+                    // 如果是研发管理部（030681），需要获取其下属的四级部门并挂载到children中
+                    if (R_AND_D_MANAGEMENT_DEPT_CODE.equals(dept.getDeptCode())) {
+                        List<DepartmentInfoVO> l4Depts = departmentInfoMapper.getLevel4DepartmentsUnderParent(R_AND_D_MANAGEMENT_DEPT_CODE);
+                        if (l4Depts != null) {
+                            // 对四级部门进行排序
+                            l4Depts.sort((o1, o2) -> {
+                                String name1 = o1.getDeptName();
+                                String name2 = o2.getDeptName();
+                                int index1 = L4_DEPARTMENT_ORDER.indexOf(name1);
+                                int index2 = L4_DEPARTMENT_ORDER.indexOf(name2);
+
+                                if (index1 != -1 && index2 != -1) {
+                                    return Integer.compare(index1, index2);
+                                } else if (index1 != -1) {
+                                    return -1; // o1 在列表中，排前面
+                                } else if (index2 != -1) {
+                                    return 1; // o2 在列表中，排前面
+                                } else {
+                                    return 0; // 都不在列表中，保持原序
+                                }
+                            });
+
+                            List<DepartmentPositionStatisticsVO> children = new ArrayList<>();
+                            for (DepartmentInfoVO l4Dept : l4Depts) {
+                                CadreStatisticsCountVO l4CountVO = cadreMapper.getCadreStatisticsByL4DeptCode(l4Dept.getDeptCode());
+                                if (l4CountVO != null) {
+                                    DepartmentPositionStatisticsVO l4DeptVO = createDepartmentPositionStatisticsVO(
+                                            l4Dept.getDeptCode(), l4Dept.getDeptName(), "L4", l4CountVO);
+                                    children.add(l4DeptVO);
+                                }
+                            }
+                            deptVO.setChildren(children);
+                        }
+                    }
+
+                    departmentList.add(deptVO);
+                }
+            }
+        }
+
+        response.setDepartmentList(departmentList);
+
+        // 3. 构建汇总数据（直接统计二级部门：云核心网产品线）
+        CadreStatisticsCountVO summaryCountVO = cadreMapper.getCadreStatisticsByL2DeptCode(CLOUD_CORE_PRODUCT_LINE_CODE);
+        
+        SummaryStatisticsVO summary = new SummaryStatisticsVO();
+        if (summaryCountVO != null) {
+            int totalSum = summaryCountVO.getTotalCount() != null ? summaryCountVO.getTotalCount() : 0;
+            int l2SoftwareSum = summaryCountVO.getL2SoftwareCount() != null ? summaryCountVO.getL2SoftwareCount() : 0;
+            int l2NonSoftwareSum = summaryCountVO.getL2NonSoftwareCount() != null ? summaryCountVO.getL2NonSoftwareCount() : 0;
+            int l3SoftwareSum = summaryCountVO.getL3SoftwareCount() != null ? summaryCountVO.getL3SoftwareCount() : 0;
+            int l3NonSoftwareSum = summaryCountVO.getL3NonSoftwareCount() != null ? summaryCountVO.getL3NonSoftwareCount() : 0;
+            
+            summary.setTotalPositionCount(totalSum);
+            
+            int l2L3Total = l2SoftwareSum + l2NonSoftwareSum + l3SoftwareSum + l3NonSoftwareSum;
+            summary.setL2L3PositionCount(l2L3Total);
+            
+            if (totalSum > 0) {
+                BigDecimal ratio = new BigDecimal(l2L3Total).divide(new BigDecimal(totalSum), 4, RoundingMode.HALF_UP);
+                summary.setL2L3PositionRatio(ratio.doubleValue());
+            } else {
+                summary.setL2L3PositionRatio(0.0);
+            }
+    
+            L2L3StatisticsVO l2Stats = new L2L3StatisticsVO();
+            l2Stats.setTotalCount(l2SoftwareSum + l2NonSoftwareSum);
+            l2Stats.setSoftwareCount(l2SoftwareSum);
+            l2Stats.setNonSoftwareCount(l2NonSoftwareSum);
+            summary.setL2Statistics(l2Stats);
+    
+            L2L3StatisticsVO l3Stats = new L2L3StatisticsVO();
+            l3Stats.setTotalCount(l3SoftwareSum + l3NonSoftwareSum);
+            l3Stats.setSoftwareCount(l3SoftwareSum);
+            l3Stats.setNonSoftwareCount(l3NonSoftwareSum);
+            summary.setL3Statistics(l3Stats);
+        } else {
+            // 如果查不到数据，初始化为0
+            summary.setTotalPositionCount(0);
+            summary.setL2L3PositionCount(0);
+            summary.setL2L3PositionRatio(0.0);
+            summary.setL2Statistics(new L2L3StatisticsVO());
+            summary.setL3Statistics(new L2L3StatisticsVO());
+        }
+
+        response.setSummary(summary);
+
+        return response;
+    }
+
+    @Override
+    public CadreAiCertOverviewResponseVO getCadreAiCertificationOverview() {
+        CadreAiCertOverviewResponseVO response = new CadreAiCertOverviewResponseVO();
+        List<CadreAiCertStatisticsVO> departmentList = new ArrayList<>();
+
+        // 1. 获取云核心网产品线下的所有三级部门
+        List<DepartmentInfoVO> l3Depts = departmentInfoMapper.getLevel3DepartmentsUnderParent(CLOUD_CORE_PRODUCT_LINE_CODE);
+        if (l3Depts != null) {
+            // 对三级部门进行排序
+            l3Depts.sort((o1, o2) -> {
+                String name1 = o1.getDeptName();
+                String name2 = o2.getDeptName();
+                int index1 = L3_DEPARTMENT_ORDER.indexOf(name1);
+                int index2 = L3_DEPARTMENT_ORDER.indexOf(name2);
+
+                if (index1 != -1 && index2 != -1) {
+                    return Integer.compare(index1, index2);
+                } else if (index1 != -1) {
+                    return -1; // o1 在列表中，排前面
+                } else if (index2 != -1) {
+                    return 1; // o2 在列表中，排前面
+                } else {
+                    return 0; // 都不在列表中，保持原序
+                }
+            });
+
+            for (DepartmentInfoVO dept : l3Depts) {
+                // 统计每个三级部门的数据
+                CadreAiCertCountVO countVO = cadreMapper.getCadreAiCertStatisticsByL3DeptCode(dept.getDeptCode());
+
+                if (countVO != null) {
+                    CadreAiCertStatisticsVO deptVO = createCadreAiCertStatisticsVO(
+                            dept.getDeptCode(), dept.getDeptName(), "L3", countVO);
+
+                    // 如果是研发管理部（030681），需要获取其下属的四级部门并挂载到children中
+                    if (R_AND_D_MANAGEMENT_DEPT_CODE.equals(dept.getDeptCode())) {
+                        List<DepartmentInfoVO> l4Depts = departmentInfoMapper.getLevel4DepartmentsUnderParent(R_AND_D_MANAGEMENT_DEPT_CODE);
+                        if (l4Depts != null) {
+                            // 对四级部门进行排序
+                            l4Depts.sort((o1, o2) -> {
+                                String name1 = o1.getDeptName();
+                                String name2 = o2.getDeptName();
+                                int index1 = L4_DEPARTMENT_ORDER.indexOf(name1);
+                                int index2 = L4_DEPARTMENT_ORDER.indexOf(name2);
+
+                                if (index1 != -1 && index2 != -1) {
+                                    return Integer.compare(index1, index2);
+                                } else if (index1 != -1) {
+                                    return -1; // o1 在列表中，排前面
+                                } else if (index2 != -1) {
+                                    return 1; // o2 在列表中，排前面
+                                } else {
+                                    return 0; // 都不在列表中，保持原序
+                                }
+                            });
+
+                            List<CadreAiCertStatisticsVO> children = new ArrayList<>();
+                            for (DepartmentInfoVO l4Dept : l4Depts) {
+                                CadreAiCertCountVO l4CountVO = cadreMapper.getCadreAiCertStatisticsByL4DeptCode(l4Dept.getDeptCode());
+                                if (l4CountVO != null) {
+                                    CadreAiCertStatisticsVO l4DeptVO = createCadreAiCertStatisticsVO(
+                                            l4Dept.getDeptCode(), l4Dept.getDeptName(), "L4", l4CountVO);
+                                    children.add(l4DeptVO);
+                                }
+                            }
+                            deptVO.setChildren(children);
+                        }
+                    }
+
+                    departmentList.add(deptVO);
+                }
+            }
+        }
+
+        response.setDepartmentList(departmentList);
+
+        // 3. 构建汇总数据（直接统计二级部门：云核心网产品线）
+        CadreAiCertCountVO summaryCountVO = cadreMapper.getCadreAiCertStatisticsByL2DeptCode(CLOUD_CORE_PRODUCT_LINE_CODE);
+        
+        CadreAiCertStatisticsVO summary = new CadreAiCertStatisticsVO();
+        if (summaryCountVO != null) {
+            int totalSum = summaryCountVO.getTotalCadreCount() != null ? summaryCountVO.getTotalCadreCount() : 0;
+            int l2L3Sum = summaryCountVO.getL2L3Count() != null ? summaryCountVO.getL2L3Count() : 0;
+            int l2SoftwareSum = summaryCountVO.getSoftwareL2Count() != null ? summaryCountVO.getSoftwareL2Count() : 0;
+            int l3SoftwareSum = summaryCountVO.getSoftwareL3Count() != null ? summaryCountVO.getSoftwareL3Count() : 0;
+            int nonSoftwareL2L3Sum = summaryCountVO.getNonSoftwareL2L3Count() != null ? summaryCountVO.getNonSoftwareL2L3Count() : 0;
+            int qualifiedL2L3Sum = summaryCountVO.getQualifiedL2L3Count() != null ? summaryCountVO.getQualifiedL2L3Count() : 0;
+    
+            summary.setTotalCadreCount(totalSum);
+            summary.setL2L3Count(l2L3Sum);
+            summary.setSoftwareL2Count(l2SoftwareSum);
+            summary.setSoftwareL3Count(l3SoftwareSum);
+            summary.setNonSoftwareL2L3Count(nonSoftwareL2L3Sum);
+            summary.setQualifiedL2L3Count(qualifiedL2L3Sum);
+    
+            if (totalSum > 0) {
+                BigDecimal ratio = new BigDecimal(qualifiedL2L3Sum).divide(new BigDecimal(totalSum), 4, RoundingMode.HALF_UP);
+                summary.setQualifiedL2L3Ratio(ratio.doubleValue());
+            } else {
+                summary.setQualifiedL2L3Ratio(0.0);
+            }
+        } else {
+            // 如果查不到数据，初始化为0
+            summary.setTotalCadreCount(0);
+            summary.setL2L3Count(0);
+            summary.setSoftwareL2Count(0);
+            summary.setSoftwareL3Count(0);
+            summary.setNonSoftwareL2L3Count(0);
+            summary.setQualifiedL2L3Count(0);
+            summary.setQualifiedL2L3Ratio(0.0);
+        }
+
+        response.setSummary(summary);
+
+        return response;
+    }
+
+    /**
+     * 构建部门岗位统计VO
+     *
+     * @param deptCode  部门编码
+     * @param deptName  部门名称
+     * @param deptLevel 部门层级
+     * @param countVO   统计数据
+     * @return 部门岗位统计VO
+     */
+    private DepartmentPositionStatisticsVO createDepartmentPositionStatisticsVO(
+            String deptCode, String deptName, String deptLevel, CadreStatisticsCountVO countVO) {
+        DepartmentPositionStatisticsVO vo = new DepartmentPositionStatisticsVO();
+        
+        // 1. 设置部门基本信息
+        vo.setDeptCode(deptCode);
+        vo.setDeptName(deptName);
+        vo.setDeptLevel(deptLevel);
+        
+        // 2. 提取统计数据
+        int total = countVO.getTotalCount() != null ? countVO.getTotalCount() : 0;
+        int l2Soft = countVO.getL2SoftwareCount() != null ? countVO.getL2SoftwareCount() : 0;
+        int l2NonSoft = countVO.getL2NonSoftwareCount() != null ? countVO.getL2NonSoftwareCount() : 0;
+        int l3Soft = countVO.getL3SoftwareCount() != null ? countVO.getL3SoftwareCount() : 0;
+        int l3NonSoft = countVO.getL3NonSoftwareCount() != null ? countVO.getL3NonSoftwareCount() : 0;
+        
+        // 3. 设置干部总岗位数
+        vo.setTotalPositionCount(total);
+        
+        // 4. 计算并设置L2/L3干部岗位总数及占比
+        int l2L3Total = l2Soft + l2NonSoft + l3Soft + l3NonSoft;
+        vo.setL2L3PositionCount(l2L3Total);
+        
+        if (total > 0) {
+            BigDecimal ratio = new BigDecimal(l2L3Total).divide(new BigDecimal(total), 4, RoundingMode.HALF_UP);
+            vo.setL2L3PositionRatio(ratio.doubleValue());
+        } else {
+            vo.setL2L3PositionRatio(0.0);
+        }
+        
+        // 5. 构建并设置L2干部统计详情
+        L2L3StatisticsVO l2Stats = new L2L3StatisticsVO();
+        l2Stats.setTotalCount(l2Soft + l2NonSoft);
+        l2Stats.setSoftwareCount(l2Soft);
+        l2Stats.setNonSoftwareCount(l2NonSoft);
+        vo.setL2Statistics(l2Stats);
+        
+        // 6. 构建并设置L3干部统计详情
+        L2L3StatisticsVO l3Stats = new L2L3StatisticsVO();
+        l3Stats.setTotalCount(l3Soft + l3NonSoft);
+        l3Stats.setSoftwareCount(l3Soft);
+        l3Stats.setNonSoftwareCount(l3NonSoft);
+        vo.setL3Statistics(l3Stats);
+        
+        return vo;
+    }
+
+    /**
+     * 构建AI任职认证统计VO
+     *
+     * @param deptCode  部门编码
+     * @param deptName  部门名称
+     * @param deptLevel 部门层级
+     * @param countVO   统计数据
+     * @return 统计VO
+     */
+    private CadreAiCertStatisticsVO createCadreAiCertStatisticsVO(
+            String deptCode, String deptName, String deptLevel, CadreAiCertCountVO countVO) {
+        CadreAiCertStatisticsVO vo = new CadreAiCertStatisticsVO();
+
+        vo.setDeptCode(deptCode);
+        vo.setDeptName(deptName);
+        vo.setDeptLevel(deptLevel);
+
+        int total = countVO.getTotalCadreCount() != null ? countVO.getTotalCadreCount() : 0;
+        vo.setTotalCadreCount(total);
+        vo.setL2L3Count(countVO.getL2L3Count() != null ? countVO.getL2L3Count() : 0);
+        vo.setSoftwareL2Count(countVO.getSoftwareL2Count() != null ? countVO.getSoftwareL2Count() : 0);
+        vo.setSoftwareL3Count(countVO.getSoftwareL3Count() != null ? countVO.getSoftwareL3Count() : 0);
+        vo.setNonSoftwareL2L3Count(countVO.getNonSoftwareL2L3Count() != null ? countVO.getNonSoftwareL2L3Count() : 0);
+        
+        int qualified = countVO.getQualifiedL2L3Count() != null ? countVO.getQualifiedL2L3Count() : 0;
+        vo.setQualifiedL2L3Count(qualified);
+
+        if (total > 0) {
+            BigDecimal ratio = new BigDecimal(qualified).divide(new BigDecimal(total), 4, RoundingMode.HALF_UP);
+            vo.setQualifiedL2L3Ratio(ratio.doubleValue());
+        } else {
+            vo.setQualifiedL2L3Ratio(0.0);
+        }
+
+        return vo;
+    }
+}
+

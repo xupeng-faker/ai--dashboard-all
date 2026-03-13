@@ -35,6 +35,8 @@ import type {
   SchoolDashboardFilters,
   SchoolDetailData,
   SchoolDetailFilters,
+  SchoolCreditRecord,
+  SchoolCreditDetailResponseVO,
   SelectOption,
   StaffChartPoint,
   TrendPoint,
@@ -1422,19 +1424,58 @@ export const fetchSchoolDashboard = async (
 
 export const fetchSchoolDetailData = async (
   _id: string,
-  _filters?: SchoolDetailFilters
+  filters?: SchoolDetailFilters
 ): Promise<SchoolDetailData> => {
-  await delay()
   const [deptTree] = await Promise.all([fetchDepartmentTree()])
 
+  // 构建查询参数
+  const deptCode = filters?.departmentPath?.length
+    ? filters.departmentPath[filters.departmentPath.length - 1]
+    : '0'
+  const deptLevel = filters?.departmentPath?.length || 0
+
+  // 调用后端接口获取学分明细数据
+  const query = new URLSearchParams()
+  query.append('deptCode', deptCode)
+  query.append('deptLevel', String(deptLevel))
+  if (filters?.role && filters.role !== '0') {
+    query.append('roleType', filters.role)
+  }
+  if (filters?.jobFamily) {
+    query.append('jobFamily', filters.jobFamily)
+  }
+  if (filters?.jobCategory) {
+    query.append('jobCategory', filters.jobCategory)
+  }
+  if (filters?.jobSubCategory) {
+    query.append('jobSubCategory', filters.jobSubCategory)
+  }
+  if (filters?.positionMaturity && filters.positionMaturity !== '全部') {
+    query.append('positionMaturity', filters.positionMaturity)
+  }
+  query.append('pageNum', '1')
+  query.append('pageSize', '100')
+
+  let records: SchoolCreditRecord[] = []
+  try {
+    const response = await get<Result<SchoolCreditDetailResponseVO>>(
+      `/api/school-credit-detail/list?${query.toString()}`
+    )
+    if (response.code === 200 && response.data) {
+      records = response.data.records
+    }
+  } catch (error) {
+    console.error('获取学分明细数据失败:', error)
+  }
+
   return {
-    records: [],
+    records,
     rules: [],
     filters: {
       departmentTree: deptTree,
-      jobFamilies: [],
-      jobCategories: [],
-      jobSubCategories: [],
+      jobFamilies: ['研发族', '产品族', '运维族', '安全族'],
+      jobCategories: ['软件开发', 'AI开发', '产品管理', '系统运维', '安全研究'],
+      jobSubCategories: ['后端开发', '前端开发', '测试开发', '算法工程师', '产品经理', '产品设计', 'SRE工程师', '运维工程师', '安全工程师', '渗透测试'],
       roles: [
         { label: '全员', value: '0' },
         { label: '干部', value: '1' },

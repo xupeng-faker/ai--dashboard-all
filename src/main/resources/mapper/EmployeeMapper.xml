@@ -1,0 +1,1504 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.huawei.aitransform.mapper.EmployeeMapper">
+
+    <!-- 根据部门层级和部门ID列表查询员工工号列表 -->
+    <!-- 注意：查询的部门层级为传入的deptLevel+1，即deptLevel=1时查询firstdeptcode -->
+    <select id="getEmployeeNumbersByDeptLevel" resultType="java.lang.String">
+        SELECT DISTINCT employee_number
+        FROM t_employee_sync
+        WHERE period_id = 20251126
+        <choose>
+            <when test="deptLevel == 1">
+                AND firstdeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 2">
+                AND seconddeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 3">
+                AND thirddeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 4">
+                AND fourthdeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 5">
+                AND fifthdeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 6">
+                AND sixthdeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 7">
+                <!-- 如果deptLevel为7，已经是最高层级，无法再查询下一层 -->
+                AND 1 = 0
+            </when>
+        </choose>
+        AND employee_number IS NOT NULL
+        AND employee_number != ''
+    </select>
+
+    <!-- 根据部门层级和部门ID列表查询员工工号和职位类 -->
+    <!-- 注意：查询的部门层级为传入的deptLevel+1，即deptLevel=1时查询firstdeptcode -->
+    <select id="getEmployeesWithCategoryByDeptLevel" resultType="com.huawei.aitransform.entity.EmployeeWithCategoryVO">
+        SELECT DISTINCT 
+            employee_number AS employeeNumber
+        FROM t_employee_sync
+        WHERE period_id = 20251126
+        <choose>
+            <when test="deptLevel == 1">
+                AND firstdeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 2">
+                AND seconddeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 3">
+                AND thirddeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 4">
+                AND fourthdeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 5">
+                AND fifthdeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 6">
+                AND sixthdeptcode IN
+                <foreach collection="deptIds" item="deptId" open="(" separator="," close=")">
+                    #{deptId}
+                </foreach>
+            </when>
+            <when test="deptLevel == 7">
+                <!-- 如果deptLevel为7，已经是最高层级，无法再查询下一层 -->
+                AND 1 = 0
+            </when>
+        </choose>
+        AND employee_number IS NOT NULL
+        AND employee_number != ''
+    </select>
+
+    <!-- 根据部门层级和部门ID查询员工认证详细信息（全员类型） -->
+    <!-- 注意：当部门ID不为0时，只查询当前部门，不查询子部门 -->
+    <!-- 使用 GROUP BY 确保每个员工只统计一次，与任职数据查询保持一致 -->
+    <select id="getEmployeeCertDetailsByDeptLevel" resultType="com.huawei.aitransform.entity.EmployeeDetailVO">
+        SELECT 
+            ANY_VALUE(e.last_name) AS name,
+            e.employee_number AS employeeNumber,
+            ANY_VALUE(
+                CASE 
+                    WHEN e.job_category LIKE '%-%-%' THEN SUBSTRING_INDEX(SUBSTRING_INDEX(e.job_category, '-', 2), '-', -1)
+                    WHEN e.job_category LIKE '%-%' THEN SUBSTRING_INDEX(e.job_category, '-', -1)
+                    ELSE e.job_category
+                END
+            ) AS competenceCategory,
+            ANY_VALUE(
+                CASE 
+                    WHEN e.job_category LIKE '%-%-%' THEN SUBSTRING_INDEX(e.job_category, '-', -1)
+                    ELSE NULL
+                END
+            ) AS competenceSubcategory,
+            ANY_VALUE(SUBSTRING_INDEX(e.firstdept, '/', 1)) AS departname2,
+            ANY_VALUE(SUBSTRING_INDEX(e.seconddept, '/', 1)) AS departname3,
+            ANY_VALUE(SUBSTRING_INDEX(e.thirddept, '/', 1)) AS departname4,
+            ANY_VALUE(SUBSTRING_INDEX(e.fourthdept, '/', 1)) AS departname5,
+            ANY_VALUE(SUBSTRING_INDEX(e.fifthdept, '/', 1)) AS departname6,
+            ANY_VALUE(SUBSTRING_INDEX(e.sixthdept, '/', 1)) AS departname7,
+            ANY_VALUE(cert.cer_title) AS certTitle,
+            ANY_VALUE(cert.start_time) AS certStartTime,
+            ANY_VALUE(
+                CASE 
+                    WHEN exam.emp_num IS NOT NULL THEN 1 
+                    ELSE 0 
+                END
+            ) AS isPassedSubject2,
+            ANY_VALUE(
+                CASE 
+                    WHEN c.account IS NOT NULL THEN 1 
+                    ELSE 0 
+                END
+            ) AS isCadre,
+            ANY_VALUE(c.cadre_type) AS cadreType,
+            ANY_VALUE(COALESCE(c.is_cert_standard, 0)) AS isCertStandard,
+            ANY_VALUE(
+                CASE 
+                    WHEN exp.account IS NOT NULL THEN 1 
+                    ELSE 0 
+                END
+            ) AS isExpert,
+            ANY_VALUE(COALESCE(exp.position_ai_maturity, c.position_ai_maturity, NULL)) AS aiMaturity,
+            ANY_VALUE(SUBSTRING_INDEX(e.lowest_dept, '/', 1)) AS miniDeptName,
+            NULL AS isQualificationsStandard
+        FROM t_employee_sync e
+        <choose>
+            <when test="queryType != null and queryType == 2">
+                <!-- queryType=2: 使用 LEFT JOIN，返回所有人员，即使没有AI专业级证书也显示 -->
+                LEFT JOIN (
+                    SELECT employee_number, cer_title, start_time
+                    FROM dwr_t_cert_record_t
+                    WHERE (status = 1 OR approved_status = 1)
+                    AND (
+                        cer_title = '华为研究类能力认证（专业级，AI算法技术）'
+                        OR cer_title = '华为研究类能力认证（专业级，AI决策推理）'
+                        OR cer_title = '华为研究类能力认证（专业级，AI图像语言语义）'
+                    )
+                    AND employee_number IS NOT NULL
+                    AND employee_number != ''
+                ) cert ON (e.employee_number = cert.employee_number)
+            </when>
+            <otherwise>
+                <!-- queryType=1: 使用 INNER JOIN，只返回有AI专业级证书的人员 -->
+                INNER JOIN (
+                    SELECT employee_number, cer_title, start_time
+                    FROM dwr_t_cert_record_t
+                    WHERE (status = 1 OR approved_status = 1)
+                    AND (
+                        cer_title = '华为研究类能力认证（专业级，AI算法技术）'
+                        OR cer_title = '华为研究类能力认证（专业级，AI决策推理）'
+                        OR cer_title = '华为研究类能力认证（专业级，AI图像语言语义）'
+                    )
+                    AND employee_number IS NOT NULL
+                    AND employee_number != ''
+                ) cert ON (e.employee_number = cert.employee_number)
+            </otherwise>
+        </choose>
+        LEFT JOIN (
+            SELECT DISTINCT emp_num
+            FROM t_exam_record
+            WHERE exam_name IS NOT NULL
+            AND exam_name != ''
+            AND is_pass = 1
+            AND emp_num IS NOT NULL
+            AND emp_num != ''
+        ) exam ON (e.employee_number = exam.emp_num)
+        LEFT JOIN t_cadre c ON (e.employee_number = c.account)
+        LEFT JOIN t_expert exp ON (e.employee_number = exp.account)
+        WHERE e.period_id = 20251126
+        AND e.employee_number IS NOT NULL
+        AND e.employee_number != ''
+        <choose>
+            <when test="deptLevel == 1">
+                AND e.firstdeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 2">
+                AND e.seconddeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 3">
+                AND e.thirddeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 4">
+                AND e.fourthdeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 5">
+                AND e.fifthdeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 6">
+                AND e.sixthdeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 7">
+                AND 1 = 0
+            </when>
+        </choose>
+        <!-- 注意：使用 = 精确匹配当前部门编码，不查询子部门 -->
+        <if test="jobCategory != null and jobCategory != ''">
+            <choose>
+                <when test="jobCategory == '非软件类'">
+                    AND (
+                        CASE 
+                            WHEN e.job_category LIKE '%-%-%' THEN SUBSTRING_INDEX(SUBSTRING_INDEX(e.job_category, '-', 2), '-', -1)
+                            WHEN e.job_category LIKE '%-%' THEN SUBSTRING_INDEX(e.job_category, '-', -1)
+                            ELSE e.job_category
+                        END
+                    ) != '软件类'
+                </when>
+                <when test="jobCategory == '其他类'">
+                    AND (
+                        CASE 
+                            WHEN e.job_category LIKE '%-%-%' THEN SUBSTRING_INDEX(SUBSTRING_INDEX(e.job_category, '-', 2), '-', -1)
+                            WHEN e.job_category LIKE '%-%' THEN SUBSTRING_INDEX(e.job_category, '-', -1)
+                            ELSE e.job_category
+                        END
+                    ) NOT IN ('研究类', '软件类', '系统类', '测试类', '产品开发项目管理类')
+                </when>
+                <otherwise>
+                    AND (
+                        CASE 
+                            WHEN e.job_category LIKE '%-%-%' THEN SUBSTRING_INDEX(SUBSTRING_INDEX(e.job_category, '-', 2), '-', -1)
+                            WHEN e.job_category LIKE '%-%' THEN SUBSTRING_INDEX(e.job_category, '-', -1)
+                            ELSE e.job_category
+                        END
+                    ) = #{jobCategory}
+                </otherwise>
+            </choose>
+        </if>
+        GROUP BY e.employee_number
+        ORDER BY e.employee_number, COALESCE(MAX(cert.start_time), '1900-01-01')
+    </select>
+
+    <!-- 根据部门层级和部门ID查询员工认证详细信息（全员类型，使用 t_employee 表） -->
+    <!-- 注意：
+         1. 当部门ID不为0时，只查询当前部门，不查询子部门
+    -->
+    <select id="getEmployeeCertDetailsByDeptLevelFromEmployee" resultType="com.huawei.aitransform.entity.EmployeeDetailVO">
+        SELECT 
+            e.last_name AS name,
+            e.employee_number AS employeeNumber,
+            e.job_category AS competenceCategory,
+            e.job_subcategory AS competenceSubcategory,
+            e.firstdept AS departname2,
+            e.seconddept AS departname3,
+            e.thirddept AS departname4,
+            e.fourthdept AS departname5,
+            e.fifthdept AS departname6,
+            e.sixthdept AS departname7,
+            e.cert_title AS certTitle,
+            NULL AS certStartTime,
+            COALESCE(e.is_passed_subject2, 0) AS isPassedSubject2,
+            0 AS isCadre,
+            NULL AS cadreType,
+            COALESCE(e.is_cert_standard, 0) AS isCertStandard,
+            0 AS isExpert,
+            NULL AS aiMaturity,
+            e.lowestdept AS miniDeptName,
+            COALESCE(e.is_qualifications_standard, 0) AS isQualificationsStandard
+        FROM t_employee e
+        WHERE e.employee_number IS NOT NULL
+        AND e.employee_number != ''
+        <!-- 根据部门层级过滤 -->
+        <choose>
+            <when test="deptLevel == 1">
+                AND e.firstdeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 2">
+                AND e.seconddeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 3">
+                AND e.thirddeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 4">
+                AND e.fourthdeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 5">
+                AND e.fifthdeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 6">
+                AND e.sixthdeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 7">
+                AND 1 = 0
+            </when>
+        </choose>
+        <!-- 根据 queryType 过滤：queryType=1 只返回有证书的人员 -->
+        <if test="queryType != null and queryType == 1">
+            AND e.cert_title IS NOT NULL
+            AND e.cert_title != ''
+        </if>
+        <!-- 职位类过滤 -->
+        <if test="jobCategory != null and jobCategory != ''">
+            <choose>
+                <when test="jobCategory == '非软件类'">
+                    AND e.job_category != '软件类'
+                </when>
+                <when test="jobCategory == '其他类'">
+                    AND e.job_category NOT IN ('研究类', '软件类', '系统类', '测试类', '产品开发项目管理类')
+                </when>
+                <otherwise>
+                    AND e.job_category = #{jobCategory}
+                </otherwise>
+            </choose>
+        </if>
+        ORDER BY e.employee_number
+    </select>
+
+    <!-- 根据部门层级和部门编码列表查询员工工号和职位族信息 -->
+    <!-- 注意：根据部门本身的层级查询对应字段，如deptLevel=3时查询thirddeptcode -->
+    <select id="getEmployeesWithJobCategoryByDeptCodes" resultType="com.huawei.aitransform.entity.EmployeeWithCategoryVO">
+        SELECT DISTINCT 
+            employee_number AS employeeNumber,
+            job_category AS competenceCategory
+        FROM t_employee_sync
+        WHERE period_id = 20251126
+        <choose>
+            <when test="deptLevel == 1">
+                AND firstdeptcode IN
+                <foreach collection="deptCodes" item="deptCode" open="(" separator="," close=")">
+                    #{deptCode}
+                </foreach>
+            </when>
+            <when test="deptLevel == 2">
+                AND seconddeptcode IN
+                <foreach collection="deptCodes" item="deptCode" open="(" separator="," close=")">
+                    #{deptCode}
+                </foreach>
+            </when>
+            <when test="deptLevel == 3">
+                AND thirddeptcode IN
+                <foreach collection="deptCodes" item="deptCode" open="(" separator="," close=")">
+                    #{deptCode}
+                </foreach>
+            </when>
+            <when test="deptLevel == 4">
+                AND fourthdeptcode IN
+                <foreach collection="deptCodes" item="deptCode" open="(" separator="," close=")">
+                    #{deptCode}
+                </foreach>
+            </when>
+            <when test="deptLevel == 5">
+                AND fifthdeptcode IN
+                <foreach collection="deptCodes" item="deptCode" open="(" separator="," close=")">
+                    #{deptCode}
+                </foreach>
+            </when>
+            <when test="deptLevel == 6">
+                AND sixthdeptcode IN
+                <foreach collection="deptCodes" item="deptCode" open="(" separator="," close=")">
+                    #{deptCode}
+                </foreach>
+            </when>
+            <when test="deptLevel == 7">
+                AND 1 = 0
+            </when>
+        </choose>
+        AND employee_number IS NOT NULL
+        AND employee_number != ''
+    </select>
+
+    <!-- 根据部门层级和部门ID查询员工任职详细信息（全员类型） -->
+    <!-- 注意：当部门ID不为0时，只查询当前部门，不查询子部门 -->
+    <select id="getEmployeeQualifiedDetailsByDeptLevel" resultType="com.huawei.aitransform.entity.EmployeeDetailVO">
+        SELECT 
+            ANY_VALUE(e.last_name) AS name,
+            e.employee_number AS employeeNumber,
+            ANY_VALUE(
+                CASE 
+                    WHEN e.job_category LIKE '%-%-%' THEN SUBSTRING_INDEX(SUBSTRING_INDEX(e.job_category, '-', 2), '-', -1)
+                    WHEN e.job_category LIKE '%-%' THEN SUBSTRING_INDEX(e.job_category, '-', -1)
+                    ELSE e.job_category
+                END
+            ) AS competenceCategory,
+            ANY_VALUE(
+                CASE 
+                    WHEN e.job_category LIKE '%-%-%' THEN SUBSTRING_INDEX(e.job_category, '-', -1)
+                    ELSE NULL
+                END
+            ) AS competenceSubcategory,
+            ANY_VALUE(SUBSTRING_INDEX(e.firstdept, '/', 1)) AS departname2,
+            ANY_VALUE(SUBSTRING_INDEX(e.seconddept, '/', 1)) AS departname3,
+            ANY_VALUE(SUBSTRING_INDEX(e.thirddept, '/', 1)) AS departname4,
+            ANY_VALUE(SUBSTRING_INDEX(e.fourthdept, '/', 1)) AS departname5,
+            ANY_VALUE(SUBSTRING_INDEX(e.fifthdept, '/', 1)) AS departname6,
+            ANY_VALUE(SUBSTRING_INDEX(e.sixthdept, '/', 1)) AS departname7,
+            ANY_VALUE(q.competence_family_cn) AS competenceFamilyCn,
+            ANY_VALUE(q.competence_category_cn) AS competenceCategoryCn,
+            ANY_VALUE(q.competence_subcategory_cn) AS competenceSubcategoryCn,
+            ANY_VALUE(q.direction_cn_name) AS directionCnName,
+            ANY_VALUE(q.competence_rating_cn) AS competenceRatingCn,
+            ANY_VALUE(q.competence_grade_cn) AS competenceGradeCn,
+            ANY_VALUE(q.competence_from) AS competenceFrom,
+            ANY_VALUE(q.competence_to) AS competenceTo,
+            ANY_VALUE(
+                CASE 
+                    WHEN c.account IS NOT NULL THEN 1 
+                    ELSE 0 
+                END
+            ) AS isCadre,
+            ANY_VALUE(c.cadre_type) AS cadreType,
+            ANY_VALUE(
+                CASE 
+                    WHEN exp.account IS NOT NULL THEN 1 
+                    ELSE 0 
+                END
+            ) AS isExpert,
+            ANY_VALUE(COALESCE(exp.position_ai_maturity, c.position_ai_maturity, NULL)) AS aiMaturity,
+            ANY_VALUE(SUBSTRING_INDEX(e.lowest_dept, '/', 1)) AS miniDeptName,
+            NULL AS isQualificationsStandard,
+            NULL AS isCertStandard
+        FROM t_employee_sync e
+        <choose>
+            <when test="queryType != null and queryType == 2">
+                <!-- queryType=2: 使用 LEFT JOIN，返回所有人员，即使没有AI任职也显示 -->
+                LEFT JOIN t_qualifications q ON (
+                    e.employee_number = q.employee_number
+                    AND q.employee_number IS NOT NULL
+                    AND q.employee_number != ''
+                    AND q.direction_cn_name IN (
+                        '数据科学与AI工程（ICT）',
+                        'AI算法及应用（ICT）',
+                        'AI软件工程与工具（ICT）',
+                        'AI系统测试（ICT）'
+                    )
+                    AND q.competence_from IS NOT NULL
+                    AND q.competence_to IS NOT NULL
+                    AND q.competence_from = (
+                        -- 子查询：找到每个员工最高级别的AI任职记录的competence_from
+                        -- 注意：移除日期限制，查询所有任职记录（包括已过期的），与认证数据查询逻辑保持一致
+                        SELECT q2.competence_from
+                        FROM t_qualifications q2
+                        WHERE q2.employee_number = e.employee_number
+                        AND q2.employee_number IS NOT NULL
+                        AND q2.employee_number != ''
+                        AND q2.direction_cn_name IN (
+                            '数据科学与AI工程（ICT）',
+                            'AI算法及应用（ICT）',
+                            'AI软件工程与工具（ICT）',
+                            'AI系统测试（ICT）'
+                        )
+                        AND q2.competence_from IS NOT NULL
+                        AND q2.competence_to IS NOT NULL
+                        ORDER BY 
+                            CASE 
+                                -- 8级最高，依次到1级，初级最低
+                                WHEN q2.competence_rating_cn = '8级' THEN 1
+                                WHEN q2.competence_rating_cn = '7级' THEN 2
+                                WHEN q2.competence_rating_cn = '6级' THEN 3
+                                WHEN q2.competence_rating_cn = '5级' THEN 4
+                                WHEN q2.competence_rating_cn = '4级' THEN 5
+                                WHEN q2.competence_rating_cn = '3级' THEN 6
+                                WHEN q2.competence_rating_cn = '2级' THEN 7
+                                WHEN q2.competence_rating_cn = '1级' THEN 8
+                                WHEN q2.competence_rating_cn = '初级' THEN 9
+                                ELSE 10
+                            END,
+                            q2.competence_from DESC
+                        LIMIT 1
+                    )
+                )
+            </when>
+            <otherwise>
+                <!-- queryType=1: 使用 INNER JOIN，只返回有AI任职的人员 -->
+                INNER JOIN t_qualifications q ON (
+                    e.employee_number = q.employee_number
+                    AND q.employee_number IS NOT NULL
+                    AND q.employee_number != ''
+                    AND q.direction_cn_name IN (
+                        '数据科学与AI工程（ICT）',
+                        'AI算法及应用（ICT）',
+                        'AI软件工程与工具（ICT）',
+                        'AI系统测试（ICT）'
+                    )
+                    AND q.competence_from IS NOT NULL
+                    AND q.competence_to IS NOT NULL
+                    AND q.competence_from = (
+                        -- 子查询：找到每个员工最高级别的AI任职记录的competence_from
+                        -- 注意：移除日期限制，查询所有任职记录（包括已过期的），与认证数据查询逻辑保持一致
+                        SELECT q2.competence_from
+                        FROM t_qualifications q2
+                        WHERE q2.employee_number = e.employee_number
+                        AND q2.employee_number IS NOT NULL
+                        AND q2.employee_number != ''
+                        AND q2.direction_cn_name IN (
+                            '数据科学与AI工程（ICT）',
+                            'AI算法及应用（ICT）',
+                            'AI软件工程与工具（ICT）',
+                            'AI系统测试（ICT）'
+                        )
+                        AND q2.competence_from IS NOT NULL
+                        AND q2.competence_to IS NOT NULL
+                        ORDER BY 
+                            CASE 
+                                -- 8级最高，依次到1级，初级最低
+                                WHEN q2.competence_rating_cn = '8级' THEN 1
+                                WHEN q2.competence_rating_cn = '7级' THEN 2
+                                WHEN q2.competence_rating_cn = '6级' THEN 3
+                                WHEN q2.competence_rating_cn = '5级' THEN 4
+                                WHEN q2.competence_rating_cn = '4级' THEN 5
+                                WHEN q2.competence_rating_cn = '3级' THEN 6
+                                WHEN q2.competence_rating_cn = '2级' THEN 7
+                                WHEN q2.competence_rating_cn = '1级' THEN 8
+                                WHEN q2.competence_rating_cn = '初级' THEN 9
+                                ELSE 10
+                            END,
+                            q2.competence_from DESC
+                        LIMIT 1
+                    )
+                )
+            </otherwise>
+        </choose>
+        LEFT JOIN t_cadre c ON (e.employee_number = c.account)
+        LEFT JOIN t_expert exp ON (e.employee_number = exp.account)
+        WHERE e.period_id = 20251126
+        AND e.employee_number IS NOT NULL
+        AND e.employee_number != ''
+        <choose>
+            <when test="deptLevel == 1">
+                AND e.firstdeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 2">
+                AND e.seconddeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 3">
+                AND e.thirddeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 4">
+                AND e.fourthdeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 5">
+                AND e.fifthdeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 6">
+                AND e.sixthdeptcode = #{deptId}
+            </when>
+            <when test="deptLevel == 7">
+                AND 1 = 0
+            </when>
+        </choose>
+        <!-- 注意：使用 = 精确匹配当前部门编码，不查询子部门 -->
+        <if test="jobCategory != null and jobCategory != ''">
+            <choose>
+                <when test="jobCategory == '非软件类'">
+                    AND (
+                        CASE 
+                            WHEN e.job_category LIKE '%-%-%' THEN SUBSTRING_INDEX(SUBSTRING_INDEX(e.job_category, '-', 2), '-', -1)
+                            WHEN e.job_category LIKE '%-%' THEN SUBSTRING_INDEX(e.job_category, '-', -1)
+                            ELSE e.job_category
+                        END
+                    ) != '软件类'
+                </when>
+                <when test="jobCategory == '其他类'">
+                    AND (
+                        CASE 
+                            WHEN e.job_category LIKE '%-%-%' THEN SUBSTRING_INDEX(SUBSTRING_INDEX(e.job_category, '-', 2), '-', -1)
+                            WHEN e.job_category LIKE '%-%' THEN SUBSTRING_INDEX(e.job_category, '-', -1)
+                            ELSE e.job_category
+                        END
+                    ) NOT IN ('研究类', '软件类', '系统类', '测试类', '产品开发项目管理类')
+                </when>
+                <otherwise>
+                    AND (
+                        CASE 
+                            WHEN e.job_category LIKE '%-%-%' THEN SUBSTRING_INDEX(SUBSTRING_INDEX(e.job_category, '-', 2), '-', -1)
+                            WHEN e.job_category LIKE '%-%' THEN SUBSTRING_INDEX(e.job_category, '-', -1)
+                            ELSE e.job_category
+                        END
+                    ) = #{jobCategory}
+                </otherwise>
+            </choose>
+        </if>
+        GROUP BY e.employee_number
+        ORDER BY e.employee_number, COALESCE(q.competence_from, '1900-01-01')
+    </select>
+
+    <!-- 获取全员同步数据 -->
+    <select id="getEmployeeSyncData" resultType="com.huawei.aitransform.entity.EmployeeSyncDataVO">
+        SELECT 
+            e.employee_number AS employeeNumber,
+            e.last_name AS lastName,
+            e.firstdeptcode,
+            e.seconddeptcode,
+            e.thirddeptcode,
+            e.fourthdeptcode,
+            e.fifthdeptcode,
+            e.sixthdeptcode,
+            e.lowest_dept_number AS lowestDeptNumber,
+            SUBSTRING_INDEX(e.firstdept, '/', 1) AS firstdept,
+            SUBSTRING_INDEX(e.seconddept, '/', 1) AS seconddept,
+            SUBSTRING_INDEX(e.thirddept, '/', 1) AS thirddept,
+            SUBSTRING_INDEX(e.fourthdept, '/', 1) AS fourthdept,
+            SUBSTRING_INDEX(e.fifthdept, '/', 1) AS fifthdept,
+            SUBSTRING_INDEX(e.sixthdept, '/', 1) AS sixthdept,
+            SUBSTRING_INDEX(e.lowest_dept, '/', 1) AS lowestDept,
+            SUBSTRING_INDEX(e.job_category, '-', 1) AS jobType,
+            CASE 
+                WHEN e.job_category LIKE '%-%-%' THEN SUBSTRING_INDEX(SUBSTRING_INDEX(e.job_category, '-', 2), '-', -1)
+                WHEN e.job_category LIKE '%-%' THEN SUBSTRING_INDEX(e.job_category, '-', -1)
+                ELSE e.job_category
+            END AS jobCategory,
+            CASE 
+                WHEN e.job_category LIKE '%-%-%' THEN SUBSTRING_INDEX(e.job_category, '-', -1)
+                ELSE NULL
+            END AS jobSubcategory,
+            e.period_id AS periodId,
+            CASE 
+                WHEN MAX(q.employee_number) IS NOT NULL THEN 1 
+                ELSE 0 
+            END AS isQualificationsStandard,
+            CASE 
+                WHEN MAX(cert.employee_number) IS NOT NULL THEN 1 
+                ELSE 0 
+            END AS isCertStandard,
+            SUBSTRING_INDEX(GROUP_CONCAT(cert.cer_title ORDER BY cert.start_time DESC SEPARATOR '||'), '||', 1) AS cert_title,
+            MAX(CASE WHEN exam.emp_num IS NOT NULL THEN 1 ELSE 0 END) AS is_passed_subject2,
+            ANY_VALUE(q_detail.competence_family_cn) AS competence_family_cn,
+            ANY_VALUE(q_detail.competence_category_cn) AS competence_category_cn,
+            ANY_VALUE(q_detail.competence_subcategory_cn) AS competence_subcategory_cn,
+            ANY_VALUE(q_detail.direction_cn_name) AS direction_cn_name,
+            ANY_VALUE(q_detail.competence_rating_cn) AS competence_rating_cn,
+            ANY_VALUE(q_detail.competence_grade_cn) AS competence_grade_cn,
+            ANY_VALUE(q_detail.competence_from) AS competence_from,
+            ANY_VALUE(q_detail.competence_to) AS competence_to
+        FROM t_employee_sync e
+        LEFT JOIN t_qualifications q ON (
+            e.employee_number = q.employee_number
+            AND q.direction_cn_name IN (
+                '数据科学与AI工程（ICT）',
+                'AI算法及应用（ICT）',
+                'AI软件工程与工具（ICT）',
+                'AI系统测试（ICT）'
+            )
+            AND CURDATE() BETWEEN q.competence_from AND q.competence_to
+        )
+        LEFT JOIN dwr_t_cert_record_t cert ON (
+            e.employee_number = cert.employee_number
+            AND (cert.status = 1 OR cert.approved_status = 1)
+            AND cert.cer_title IN (
+                '华为研究类能力认证（专业级，AI算法技术）',
+                '华为研究类能力认证（专业级，AI决策推理）',
+                '华为研究类能力认证（专业级，AI图像语言语义）'
+            )
+        )
+        LEFT JOIN (
+            SELECT DISTINCT emp_num
+            FROM t_exam_record
+            WHERE is_pass = 1
+            AND exam_name IS NOT NULL
+            AND exam_name != ''
+        ) exam ON (e.employee_number = exam.emp_num)
+        LEFT JOIN t_qualifications q_detail ON (
+            e.employee_number = q_detail.employee_number
+            AND q_detail.direction_cn_name IN (
+                '数据科学与AI工程（ICT）',
+                'AI算法及应用（ICT）',
+                'AI软件工程与工具（ICT）',
+                'AI系统测试（ICT）'
+            )
+            AND q_detail.competence_from = (
+                SELECT q2.competence_from
+                FROM t_qualifications q2
+                WHERE q2.employee_number = e.employee_number
+                AND q2.direction_cn_name IN (
+                    '数据科学与AI工程（ICT）',
+                    'AI算法及应用（ICT）',
+                    'AI软件工程与工具（ICT）',
+                    'AI系统测试（ICT）'
+                )
+                ORDER BY 
+                    CASE 
+                        WHEN q2.competence_rating_cn = '8级' THEN 1
+                        WHEN q2.competence_rating_cn = '7级' THEN 2
+                        WHEN q2.competence_rating_cn = '6级' THEN 3
+                        WHEN q2.competence_rating_cn = '5级' THEN 4
+                        WHEN q2.competence_rating_cn = '4级' THEN 5
+                        WHEN q2.competence_rating_cn = '3级' THEN 6
+                        WHEN q2.competence_rating_cn = '2级' THEN 7
+                        WHEN q2.competence_rating_cn = '1级' THEN 8
+                        WHEN q2.competence_rating_cn = '初级' THEN 9
+                        ELSE 10
+                    END,
+                    q2.competence_from DESC
+                LIMIT 1
+            )
+        )
+        WHERE e.period_id = #{periodId}
+        AND SUBSTRING_INDEX(e.job_category, '-', 1) = '研发族'
+        GROUP BY e.employee_number
+    </select>
+
+    <!-- 根据工号列表和期号查询员工同步数据（不过滤职位族） -->
+    <select id="getEmployeeSyncDataByEmployeeNumbers" resultType="com.huawei.aitransform.entity.EmployeeSyncDataVO">
+        SELECT 
+            e.employee_number AS employeeNumber,
+            e.last_name AS lastName,
+            e.firstdeptcode,
+            e.seconddeptcode,
+            e.thirddeptcode,
+            e.fourthdeptcode,
+            e.fifthdeptcode,
+            e.sixthdeptcode,
+            e.lowest_dept_number AS lowestDeptNumber,
+            SUBSTRING_INDEX(e.firstdept, '/', 1) AS firstdept,
+            SUBSTRING_INDEX(e.seconddept, '/', 1) AS seconddept,
+            SUBSTRING_INDEX(e.thirddept, '/', 1) AS thirddept,
+            SUBSTRING_INDEX(e.fourthdept, '/', 1) AS fourthdept,
+            SUBSTRING_INDEX(e.fifthdept, '/', 1) AS fifthdept,
+            SUBSTRING_INDEX(e.sixthdept, '/', 1) AS sixthdept,
+            SUBSTRING_INDEX(e.lowest_dept, '/', 1) AS lowestDept,
+            SUBSTRING_INDEX(e.job_category, '-', 1) AS jobType,
+            CASE 
+                WHEN e.job_category LIKE '%-%-%' THEN SUBSTRING_INDEX(SUBSTRING_INDEX(e.job_category, '-', 2), '-', -1)
+                WHEN e.job_category LIKE '%-%' THEN SUBSTRING_INDEX(e.job_category, '-', -1)
+                ELSE e.job_category
+            END AS jobCategory,
+            CASE 
+                WHEN e.job_category LIKE '%-%-%' THEN SUBSTRING_INDEX(e.job_category, '-', -1)
+                ELSE NULL
+            END AS jobSubcategory,
+            e.period_id AS periodId,
+            CASE 
+                WHEN MAX(q.employee_number) IS NOT NULL THEN 1 
+                ELSE 0 
+            END AS isQualificationsStandard,
+            CASE 
+                WHEN MAX(cert.employee_number) IS NOT NULL THEN 1 
+                ELSE 0 
+            END AS isCertStandard,
+            SUBSTRING_INDEX(GROUP_CONCAT(cert.cer_title ORDER BY cert.start_time DESC SEPARATOR '||'), '||', 1) AS cert_title,
+            MAX(CASE WHEN exam.emp_num IS NOT NULL THEN 1 ELSE 0 END) AS is_passed_subject2,
+            ANY_VALUE(q_detail.competence_family_cn) AS competence_family_cn,
+            ANY_VALUE(q_detail.competence_category_cn) AS competence_category_cn,
+            ANY_VALUE(q_detail.competence_subcategory_cn) AS competence_subcategory_cn,
+            ANY_VALUE(q_detail.direction_cn_name) AS direction_cn_name,
+            ANY_VALUE(q_detail.competence_rating_cn) AS competence_rating_cn,
+            ANY_VALUE(q_detail.competence_grade_cn) AS competence_grade_cn,
+            ANY_VALUE(q_detail.competence_from) AS competence_from,
+            ANY_VALUE(q_detail.competence_to) AS competence_to
+        FROM t_employee_sync e
+        LEFT JOIN t_qualifications q ON (
+            e.employee_number = q.employee_number
+            AND q.direction_cn_name IN (
+                '数据科学与AI工程（ICT）',
+                'AI算法及应用（ICT）',
+                'AI软件工程与工具（ICT）',
+                'AI系统测试（ICT）'
+            )
+            AND CURDATE() BETWEEN q.competence_from AND q.competence_to
+        )
+        LEFT JOIN dwr_t_cert_record_t cert ON (
+            e.employee_number = cert.employee_number
+            AND (cert.status = 1 OR cert.approved_status = 1)
+            AND cert.cer_title IN (
+                '华为研究类能力认证（专业级，AI算法技术）',
+                '华为研究类能力认证（专业级，AI决策推理）',
+                '华为研究类能力认证（专业级，AI图像语言语义）'
+            )
+        )
+        LEFT JOIN (
+            SELECT DISTINCT emp_num
+            FROM t_exam_record
+            WHERE is_pass = 1
+            AND exam_name IS NOT NULL
+            AND exam_name != ''
+        ) exam ON (e.employee_number = exam.emp_num)
+        LEFT JOIN t_qualifications q_detail ON (
+            e.employee_number = q_detail.employee_number
+            AND q_detail.direction_cn_name IN (
+                '数据科学与AI工程（ICT）',
+                'AI算法及应用（ICT）',
+                'AI软件工程与工具（ICT）',
+                'AI系统测试（ICT）'
+            )
+            AND q_detail.competence_from = (
+                SELECT q2.competence_from
+                FROM t_qualifications q2
+                WHERE q2.employee_number = e.employee_number
+                AND q2.direction_cn_name IN (
+                    '数据科学与AI工程（ICT）',
+                    'AI算法及应用（ICT）',
+                    'AI软件工程与工具（ICT）',
+                    'AI系统测试（ICT）'
+                )
+                ORDER BY 
+                    CASE 
+                        WHEN q2.competence_rating_cn = '8级' THEN 1
+                        WHEN q2.competence_rating_cn = '7级' THEN 2
+                        WHEN q2.competence_rating_cn = '6级' THEN 3
+                        WHEN q2.competence_rating_cn = '5级' THEN 4
+                        WHEN q2.competence_rating_cn = '4级' THEN 5
+                        WHEN q2.competence_rating_cn = '3级' THEN 6
+                        WHEN q2.competence_rating_cn = '2级' THEN 7
+                        WHEN q2.competence_rating_cn = '1级' THEN 8
+                        WHEN q2.competence_rating_cn = '初级' THEN 9
+                        ELSE 10
+                    END,
+                    q2.competence_from DESC
+                LIMIT 1
+            )
+        )
+        WHERE e.period_id = #{periodId}
+        AND e.employee_number IN
+        <foreach collection="employeeNumbers" item="empNo" open="(" separator="," close=")">
+            #{empNo}
+        </foreach>
+        GROUP BY e.employee_number
+    </select>
+
+    <!-- 获取 t_employee 全量数据 -->
+    <select id="getAllEmployees" resultType="com.huawei.aitransform.entity.EmployeePO">
+        SELECT 
+            employee_number AS employeeNumber,
+            last_name AS lastName,
+            firstdeptcode, seconddeptcode, thirddeptcode, fourthdeptcode, fifthdeptcode, sixthdeptcode,
+            lowestdeptid AS lowestDeptId,
+            firstdept, seconddept, thirddept, fourthdept, fifthdept, sixthdept,
+            lowestdept AS lowestDept,
+            job_type AS jobType,
+            job_category AS jobCategory,
+            job_subcategory AS jobSubcategory,
+            period_id AS periodId,
+            updated_time AS updatedTime,
+            is_qualifications_standard AS isQualificationsStandard,
+            is_cert_standard AS isCertStandard,
+            cert_title AS certTitle,
+            is_passed_subject2 AS isPassedSubject2,
+            competence_family_cn AS competenceFamilyCn,
+            competence_category_cn AS competenceCategoryCn,
+            competence_subcategory_cn AS competenceSubcategoryCn,
+            direction_cn_name AS directionCnName,
+            competence_rating_cn AS competenceRatingCn,
+            competence_from AS competenceFrom,
+            competence_to AS competenceTo
+        FROM t_employee
+    </select>
+
+    <!-- 插入员工数据 -->
+    <insert id="insertEmployee" parameterType="com.huawei.aitransform.entity.EmployeePO">
+        INSERT INTO t_employee (
+            employee_number, last_name, 
+            firstdeptcode, seconddeptcode, thirddeptcode, fourthdeptcode, fifthdeptcode, sixthdeptcode, 
+            lowestdeptid, 
+            firstdept, seconddept, thirddept, fourthdept, fifthdept, sixthdept, 
+            lowestdept, 
+            job_type, job_category, job_subcategory, 
+            period_id, updated_time, 
+            is_qualifications_standard, is_cert_standard,
+            cert_title, is_passed_subject2,
+            competence_family_cn, competence_category_cn, competence_subcategory_cn,
+            direction_cn_name, competence_rating_cn,
+            competence_from, competence_to
+        ) VALUES (
+            #{employeeNumber}, #{lastName}, 
+            #{firstdeptcode}, #{seconddeptcode}, #{thirddeptcode}, #{fourthdeptcode}, #{fifthdeptcode}, #{sixthdeptcode}, 
+            #{lowestDeptId}, 
+            #{firstdept}, #{seconddept}, #{thirddept}, #{fourthdept}, #{fifthdept}, #{sixthdept}, 
+            #{lowestDept}, 
+            #{jobType}, #{jobCategory}, #{jobSubcategory}, 
+            #{periodId}, NOW(), 
+            #{isQualificationsStandard}, #{isCertStandard},
+            #{certTitle}, #{isPassedSubject2},
+            #{competenceFamilyCn}, #{competenceCategoryCn}, #{competenceSubcategoryCn},
+            #{directionCnName}, #{competenceRatingCn},
+            #{competenceFrom}, #{competenceTo}
+        )
+    </insert>
+
+    <!-- 更新员工数据 -->
+    <update id="updateEmployee" parameterType="com.huawei.aitransform.entity.EmployeePO">
+        UPDATE t_employee SET
+            last_name = #{lastName},
+            firstdeptcode = #{firstdeptcode}, seconddeptcode = #{seconddeptcode}, 
+            thirddeptcode = #{thirddeptcode}, fourthdeptcode = #{fourthdeptcode}, 
+            fifthdeptcode = #{fifthdeptcode}, sixthdeptcode = #{sixthdeptcode},
+            lowestdeptid = #{lowestDeptId},
+            firstdept = #{firstdept}, seconddept = #{seconddept}, 
+            thirddept = #{thirddept}, fourthdept = #{fourthdept}, 
+            fifthdept = #{fifthdept}, sixthdept = #{sixthdept},
+            lowestdept = #{lowestDept},
+            job_type = #{jobType}, 
+            job_category = #{jobCategory}, 
+            job_subcategory = #{jobSubcategory},
+            period_id = #{periodId}, 
+            updated_time = NOW(),
+            is_qualifications_standard = #{isQualificationsStandard},
+            is_cert_standard = #{isCertStandard},
+            cert_title = #{certTitle},
+            is_passed_subject2 = #{isPassedSubject2},
+            competence_family_cn = #{competenceFamilyCn},
+            competence_category_cn = #{competenceCategoryCn},
+            competence_subcategory_cn = #{competenceSubcategoryCn},
+            direction_cn_name = #{directionCnName},
+            competence_rating_cn = #{competenceRatingCn},
+            competence_from = #{competenceFrom},
+            competence_to = #{competenceTo}
+        WHERE employee_number = #{employeeNumber}
+    </update>
+
+    <!-- 批量插入员工数据 -->
+    <insert id="batchInsertEmployees" parameterType="java.util.List">
+        INSERT INTO t_employee (
+            employee_number, last_name, 
+            firstdeptcode, seconddeptcode, thirddeptcode, fourthdeptcode, fifthdeptcode, sixthdeptcode, 
+            lowestdeptid, 
+            firstdept, seconddept, thirddept, fourthdept, fifthdept, sixthdept, 
+            lowestdept, 
+            job_type, job_category, job_subcategory, 
+            period_id, updated_time, 
+            is_qualifications_standard, is_cert_standard,
+            cert_title, is_passed_subject2,
+            competence_family_cn, competence_category_cn, competence_subcategory_cn,
+            direction_cn_name, competence_rating_cn,
+            competence_from, competence_to
+        ) VALUES 
+        <foreach collection="list" item="item" separator=",">
+        (
+            #{item.employeeNumber}, #{item.lastName}, 
+            #{item.firstdeptcode}, #{item.seconddeptcode}, #{item.thirddeptcode}, #{item.fourthdeptcode}, #{item.fifthdeptcode}, #{item.sixthdeptcode}, 
+            #{item.lowestDeptId}, 
+            #{item.firstdept}, #{item.seconddept}, #{item.thirddept}, #{item.fourthdept}, #{item.fifthdept}, #{item.sixthdept}, 
+            #{item.lowestDept}, 
+            #{item.jobType}, #{item.jobCategory}, #{item.jobSubcategory}, 
+            #{item.periodId}, NOW(), 
+            #{item.isQualificationsStandard}, #{item.isCertStandard},
+            #{item.certTitle}, #{item.isPassedSubject2},
+            #{item.competenceFamilyCn}, #{item.competenceCategoryCn}, #{item.competenceSubcategoryCn},
+            #{item.directionCnName}, #{item.competenceRatingCn},
+            #{item.competenceFrom}, #{item.competenceTo}
+        )
+        </foreach>
+    </insert>
+
+    <!-- 批量更新员工数据 (使用CASE WHEN) -->
+    <update id="batchUpdateEmployees" parameterType="java.util.List">
+        UPDATE t_employee
+        <trim prefix="SET" suffixOverrides=",">
+            <trim prefix="last_name = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.lastName}
+                </foreach>
+            </trim>
+            <trim prefix="firstdeptcode = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.firstdeptcode}
+                </foreach>
+            </trim>
+            <trim prefix="seconddeptcode = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.seconddeptcode}
+                </foreach>
+            </trim>
+            <trim prefix="thirddeptcode = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.thirddeptcode}
+                </foreach>
+            </trim>
+            <trim prefix="fourthdeptcode = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.fourthdeptcode}
+                </foreach>
+            </trim>
+            <trim prefix="fifthdeptcode = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.fifthdeptcode}
+                </foreach>
+            </trim>
+            <trim prefix="sixthdeptcode = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.sixthdeptcode}
+                </foreach>
+            </trim>
+            <trim prefix="lowestdeptid = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.lowestDeptId}
+                </foreach>
+            </trim>
+            <trim prefix="firstdept = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.firstdept}
+                </foreach>
+            </trim>
+            <trim prefix="seconddept = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.seconddept}
+                </foreach>
+            </trim>
+            <trim prefix="thirddept = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.thirddept}
+                </foreach>
+            </trim>
+            <trim prefix="fourthdept = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.fourthdept}
+                </foreach>
+            </trim>
+            <trim prefix="fifthdept = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.fifthdept}
+                </foreach>
+            </trim>
+            <trim prefix="sixthdept = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.sixthdept}
+                </foreach>
+            </trim>
+            <trim prefix="lowestdept = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.lowestDept}
+                </foreach>
+            </trim>
+            <trim prefix="job_type = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.jobType}
+                </foreach>
+            </trim>
+            <trim prefix="job_category = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.jobCategory}
+                </foreach>
+            </trim>
+            <trim prefix="job_subcategory = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.jobSubcategory}
+                </foreach>
+            </trim>
+            <trim prefix="period_id = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.periodId}
+                </foreach>
+            </trim>
+            <trim prefix="is_qualifications_standard = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.isQualificationsStandard}
+                </foreach>
+            </trim>
+            <trim prefix="is_cert_standard = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.isCertStandard}
+                </foreach>
+            </trim>
+            <trim prefix="cert_title = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.certTitle}
+                </foreach>
+            </trim>
+            <trim prefix="is_passed_subject2 = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.isPassedSubject2}
+                </foreach>
+            </trim>
+            <trim prefix="competence_family_cn = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.competenceFamilyCn}
+                </foreach>
+            </trim>
+            <trim prefix="competence_category_cn = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.competenceCategoryCn}
+                </foreach>
+            </trim>
+            <trim prefix="competence_subcategory_cn = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.competenceSubcategoryCn}
+                </foreach>
+            </trim>
+            <trim prefix="direction_cn_name = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.directionCnName}
+                </foreach>
+            </trim>
+            <trim prefix="competence_rating_cn = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.competenceRatingCn}
+                </foreach>
+            </trim>
+            <trim prefix="competence_from = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.competenceFrom}
+                </foreach>
+            </trim>
+            <trim prefix="competence_to = CASE" suffix="END,">
+                <foreach collection="list" item="item">
+                    WHEN employee_number = #{item.employeeNumber} THEN #{item.competenceTo}
+                </foreach>
+            </trim>
+            updated_time = NOW(),
+        </trim>
+        WHERE employee_number IN
+        <foreach collection="list" item="item" open="(" separator="," close=")">
+            #{item.employeeNumber}
+        </foreach>
+    </update>
+
+    <!-- 批量删除员工数据 -->
+    <delete id="batchDeleteEmployees" parameterType="java.util.List">
+        DELETE FROM t_employee WHERE employee_number IN
+        <foreach collection="list" item="empNo" open="(" separator="," close=")">
+            #{empNo}
+        </foreach>
+    </delete>
+
+    <!-- 批量查询部门统计数据（从 t_employee 表，不使用 period_id 过滤） -->
+    <!-- currentLevel 表示当前部门层级，查询的是下一层（currentLevel+1）的部门统计数据 -->
+    <select id="getDeptStatisticsByLevel" resultType="com.huawei.aitransform.entity.DepartmentCertStatisticsVO">
+        SELECT 
+            <choose>
+                <when test="currentLevel == 1">seconddeptcode</when>
+                <when test="currentLevel == 2">thirddeptcode</when>
+                <when test="currentLevel == 3">fourthdeptcode</when>
+                <when test="currentLevel == 4">fifthdeptcode</when>
+                <when test="currentLevel == 5">sixthdeptcode</when>
+                <when test="currentLevel == 6">lowestdeptid</when>
+                <otherwise>NULL</otherwise>
+            </choose> AS deptCode,
+            COUNT(1) AS totalCount,
+            SUM(CASE WHEN is_cert_standard = 1 THEN 1 ELSE 0 END) AS certifiedCount,
+            SUM(CASE WHEN is_qualifications_standard = 1 THEN 1 ELSE 0 END) AS qualifiedCount
+        FROM t_employee
+        WHERE employee_number IS NOT NULL
+        AND employee_number != ''
+        <choose>
+            <!-- currentLevel=1（一级部门），查询二级部门，按 seconddeptcode 分组 -->
+            <when test="currentLevel == 1">
+                AND firstdeptcode = #{deptCode}
+                GROUP BY seconddeptcode
+            </when>
+            <!-- currentLevel=2（二级部门），查询三级部门，按 thirddeptcode 分组 -->
+            <when test="currentLevel == 2">
+                AND seconddeptcode = #{deptCode}
+                GROUP BY thirddeptcode
+            </when>
+            <!-- currentLevel=3（三级部门），查询四级部门，按 fourthdeptcode 分组 -->
+            <when test="currentLevel == 3">
+                AND thirddeptcode = #{deptCode}
+                GROUP BY fourthdeptcode
+            </when>
+            <!-- currentLevel=4（四级部门），查询五级部门，按 fifthdeptcode 分组 -->
+            <when test="currentLevel == 4">
+                AND fourthdeptcode = #{deptCode}
+                GROUP BY fifthdeptcode
+            </when>
+            <!-- currentLevel=5（五级部门），查询六级部门，按 sixthdeptcode 分组 -->
+            <when test="currentLevel == 5">
+                AND fifthdeptcode = #{deptCode}
+                GROUP BY sixthdeptcode
+            </when>
+            <!-- currentLevel=6（六级部门），查询最小部门，按 lowestdeptid 分组 -->
+            <when test="currentLevel == 6">
+                AND sixthdeptcode = #{deptCode}
+                GROUP BY lowestdeptid
+            </when>
+            <otherwise>
+                AND 1 = 0
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 批量查询二级部门下的四级部门统计数据（从 t_employee 表，不使用 period_id 过滤） -->
+    <!-- 专门用于查询云核心网产品线（二级部门）下的所有四级部门 -->
+    <select id="getLevel4DeptStatisticsUnderLevel2" resultType="com.huawei.aitransform.entity.DepartmentCertStatisticsVO">
+        SELECT 
+            fourthdeptcode AS deptCode,
+            COUNT(1) AS totalCount,
+            SUM(CASE WHEN is_cert_standard = 1 THEN 1 ELSE 0 END) AS certifiedCount,
+            SUM(CASE WHEN is_qualifications_standard = 1 THEN 1 ELSE 0 END) AS qualifiedCount
+        FROM t_employee
+        WHERE employee_number IS NOT NULL
+        AND employee_number != ''
+        AND seconddeptcode = #{deptCode}
+        GROUP BY fourthdeptcode
+    </select>
+
+    <!-- 统计整个表中员工的总数据（从 t_employee 表，不使用 period_id 过滤） -->
+    <!-- 用于 deptCode=0 时的总计统计 -->
+    <select id="getTotalStatisticsForAllEmployees" resultType="com.huawei.aitransform.entity.DepartmentCertStatisticsVO">
+        SELECT 
+            COUNT(1) AS totalCount,
+            SUM(CASE WHEN is_cert_standard = 1 THEN 1 ELSE 0 END) AS certifiedCount,
+            SUM(CASE WHEN is_qualifications_standard = 1 THEN 1 ELSE 0 END) AS qualifiedCount
+        FROM t_employee
+        WHERE employee_number IS NOT NULL
+        AND employee_number != ''
+    </select>
+
+    <!-- 查询总计数据（统计当前部门及其所有子部门的人员） -->
+    <!-- 用于 employee-cert-statistics 接口的总计统计 -->
+    <select id="getTotalDeptStatisticsByLevel" resultType="com.huawei.aitransform.entity.DepartmentCertStatisticsVO">
+        SELECT 
+            COUNT(1) AS totalCount,
+            SUM(CASE WHEN is_cert_standard = 1 THEN 1 ELSE 0 END) AS certifiedCount,
+            SUM(CASE WHEN is_qualifications_standard = 1 THEN 1 ELSE 0 END) AS qualifiedCount
+        FROM t_employee
+        WHERE employee_number IS NOT NULL
+        AND employee_number != ''
+        <choose>
+            <when test="currentLevel == 1">
+                AND firstdeptcode = #{deptCode}
+            </when>
+            <when test="currentLevel == 2">
+                AND seconddeptcode = #{deptCode}
+            </when>
+            <when test="currentLevel == 3">
+                AND thirddeptcode = #{deptCode}
+            </when>
+            <when test="currentLevel == 4">
+                AND fourthdeptcode = #{deptCode}
+            </when>
+            <when test="currentLevel == 5">
+                AND fifthdeptcode = #{deptCode}
+            </when>
+            <when test="currentLevel == 6">
+                AND sixthdeptcode = #{deptCode}
+            </when>
+            <otherwise>
+                AND 1 = 0
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 按职位类统计下一层部门的统计数据（从 t_employee 表） -->
+    <select id="getCompetenceCategoryStatisticsByLevel" resultType="com.huawei.aitransform.entity.CompetenceCategoryDeptStatisticsVO">
+        SELECT 
+            <choose>
+                <when test="currentLevel == 1">seconddeptcode</when>
+                <when test="currentLevel == 2">thirddeptcode</when>
+                <when test="currentLevel == 3">fourthdeptcode</when>
+                <when test="currentLevel == 4">fifthdeptcode</when>
+                <when test="currentLevel == 5">sixthdeptcode</when>
+                <when test="currentLevel == 6">lowestdeptid</when>
+                <otherwise>NULL</otherwise>
+            </choose> AS deptCode,
+            job_category AS competenceCategory,
+            COUNT(1) AS totalCount,
+            SUM(CASE WHEN is_cert_standard = 1 THEN 1 ELSE 0 END) AS certifiedCount,
+            SUM(CASE WHEN is_qualifications_standard = 1 THEN 1 ELSE 0 END) AS qualifiedCount
+        FROM t_employee
+        WHERE employee_number IS NOT NULL
+        AND employee_number != ''
+        <choose>
+            <when test="currentLevel == 1">
+                AND firstdeptcode = #{deptCode}
+                GROUP BY seconddeptcode, job_category
+            </when>
+            <when test="currentLevel == 2">
+                AND seconddeptcode = #{deptCode}
+                GROUP BY thirddeptcode, job_category
+            </when>
+            <when test="currentLevel == 3">
+                AND thirddeptcode = #{deptCode}
+                GROUP BY fourthdeptcode, job_category
+            </when>
+            <when test="currentLevel == 4">
+                AND fourthdeptcode = #{deptCode}
+                GROUP BY fifthdeptcode, job_category
+            </when>
+            <when test="currentLevel == 5">
+                AND fifthdeptcode = #{deptCode}
+                GROUP BY sixthdeptcode, job_category
+            </when>
+            <when test="currentLevel == 6">
+                AND sixthdeptcode = #{deptCode}
+                GROUP BY lowestdeptid, job_category
+            </when>
+            <otherwise>
+                AND 1 = 0
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 按职位类统计二级部门下的四级部门（deptCode="0" 时使用） -->
+    <select id="getLevel4CompetenceCategoryStatisticsUnderLevel2" resultType="com.huawei.aitransform.entity.CompetenceCategoryDeptStatisticsVO">
+        SELECT 
+            fourthdeptcode AS deptCode,
+            job_category AS competenceCategory,
+            COUNT(1) AS totalCount,
+            SUM(CASE WHEN is_cert_standard = 1 THEN 1 ELSE 0 END) AS certifiedCount,
+            SUM(CASE WHEN is_qualifications_standard = 1 THEN 1 ELSE 0 END) AS qualifiedCount
+        FROM t_employee
+        WHERE employee_number IS NOT NULL
+        AND employee_number != ''
+        AND seconddeptcode = #{deptCode}
+        GROUP BY fourthdeptcode, job_category
+    </select>
+
+    <!-- 查询总计数据（统计当前部门及其所有子部门的人员） -->
+    <select id="getTotalCompetenceCategoryStatisticsByLevel" resultType="com.huawei.aitransform.entity.DepartmentCertStatisticsVO">
+        SELECT 
+            COUNT(1) AS totalCount,
+            SUM(CASE WHEN is_cert_standard = 1 THEN 1 ELSE 0 END) AS certifiedCount,
+            SUM(CASE WHEN is_qualifications_standard = 1 THEN 1 ELSE 0 END) AS qualifiedCount
+        FROM t_employee
+        WHERE employee_number IS NOT NULL
+        AND employee_number != ''
+        <choose>
+            <when test="currentLevel == 1">
+                AND firstdeptcode = #{deptCode}
+            </when>
+            <when test="currentLevel == 2">
+                AND seconddeptcode = #{deptCode}
+            </when>
+            <when test="currentLevel == 3">
+                AND thirddeptcode = #{deptCode}
+            </when>
+            <when test="currentLevel == 4">
+                AND fourthdeptcode = #{deptCode}
+            </when>
+            <when test="currentLevel == 5">
+                AND fifthdeptcode = #{deptCode}
+            </when>
+            <when test="currentLevel == 6">
+                AND sixthdeptcode = #{deptCode}
+            </when>
+            <otherwise>
+                AND 1 = 0
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 查询总计数据（deptCode="0" 时使用，统计整个表的人员） -->
+    <select id="getTotalCompetenceCategoryStatisticsForAllEmployees" resultType="com.huawei.aitransform.entity.DepartmentCertStatisticsVO">
+        SELECT 
+            COUNT(1) AS totalCount,
+            SUM(CASE WHEN is_cert_standard = 1 THEN 1 ELSE 0 END) AS certifiedCount,
+            SUM(CASE WHEN is_qualifications_standard = 1 THEN 1 ELSE 0 END) AS qualifiedCount
+        FROM t_employee
+        WHERE employee_number IS NOT NULL
+        AND employee_number != ''
+    </select>
+
+    <!-- 根据部门层级和部门编码查询员工任职详细信息（全员类型，使用 t_employee 表） -->
+    <select id="getEmployeeQualifiedDetailsFromEmployeeTable" resultType="com.huawei.aitransform.entity.EmployeeDetailVO">
+        SELECT 
+            e.last_name AS name,
+            e.employee_number AS employeeNumber,
+            e.job_category AS competenceCategory,
+            e.job_subcategory AS competenceSubcategory,
+            e.firstdept AS departname2,
+            e.seconddept AS departname3,
+            e.thirddept AS departname4,
+            e.fourthdept AS departname5,
+            e.fifthdept AS departname6,
+            e.sixthdept AS departname7,
+            e.competence_family_cn AS competenceFamilyCn,
+            e.competence_category_cn AS competenceCategoryCn,
+            e.competence_subcategory_cn AS competenceSubcategoryCn,
+            e.direction_cn_name AS directionCnName,
+            e.competence_rating_cn AS competenceRatingCn,
+            e.competence_grade_cn AS competenceGradeCn,
+            e.competence_from AS competenceFrom,
+            e.competence_to AS competenceTo,
+            -- 全员类型不需要统计干部和专家信息，直接设置为 0
+            0 AS isCadre,
+            NULL AS cadreType,
+            0 AS isExpert,
+            -- 岗位AI成熟度（全员类型不需要，设置为 NULL）
+            NULL AS aiMaturity,
+            e.lowestdept AS miniDeptName,
+            NULL AS isQualificationsStandard,
+            NULL AS isCertStandard
+        FROM t_employee e
+        WHERE e.employee_number IS NOT NULL
+        AND e.employee_number != ''
+        <choose>
+            <when test="deptLevel == 1">
+                AND e.firstdeptcode = #{deptCode}
+            </when>
+            <when test="deptLevel == 2">
+                AND e.seconddeptcode = #{deptCode}
+            </when>
+            <when test="deptLevel == 3">
+                AND e.thirddeptcode = #{deptCode}
+            </when>
+            <when test="deptLevel == 4">
+                AND e.fourthdeptcode = #{deptCode}
+            </when>
+            <when test="deptLevel == 5">
+                AND e.fifthdeptcode = #{deptCode}
+            </when>
+            <when test="deptLevel == 6">
+                AND e.sixthdeptcode = #{deptCode}
+            </when>
+            <otherwise>
+                AND 1 = 0
+            </otherwise>
+        </choose>
+        <!-- queryType=1 时，只返回有任职信息的员工 -->
+        <if test="queryType != null and queryType == 1">
+            AND e.direction_cn_name IS NOT NULL
+            AND e.direction_cn_name != ''
+            AND e.competence_from IS NOT NULL
+            AND e.competence_to IS NOT NULL
+        </if>
+        <!-- 职位类过滤 -->
+        <if test="jobCategory != null and jobCategory != ''">
+            <choose>
+                <when test="jobCategory == '非软件类'">
+                    AND e.job_category != '软件类'
+                </when>
+                <when test="jobCategory == '其他类'">
+                    AND e.job_category NOT IN ('研究类', '软件类', '系统类', '测试类', '产品开发项目管理类')
+                </when>
+                <otherwise>
+                    AND e.job_category = #{jobCategory}
+                </otherwise>
+            </choose>
+        </if>
+        ORDER BY e.employee_number
+    </select>
+
+    <!-- 查询所有员工任职详细信息（deptCode="0" 时，查询所有员工） -->
+    <select id="getAllEmployeeQualifiedDetailsFromEmployeeTable" resultType="com.huawei.aitransform.entity.EmployeeDetailVO">
+        SELECT 
+            e.last_name AS name,
+            e.employee_number AS employeeNumber,
+            e.job_category AS competenceCategory,
+            e.job_subcategory AS competenceSubcategory,
+            e.firstdept AS departname2,
+            e.seconddept AS departname3,
+            e.thirddept AS departname4,
+            e.fourthdept AS departname5,
+            e.fifthdept AS departname6,
+            e.sixthdept AS departname7,
+            e.competence_family_cn AS competenceFamilyCn,
+            e.competence_category_cn AS competenceCategoryCn,
+            e.competence_subcategory_cn AS competenceSubcategoryCn,
+            e.direction_cn_name AS directionCnName,
+            e.competence_rating_cn AS competenceRatingCn,
+            e.competence_grade_cn AS competenceGradeCn,
+            e.competence_from AS competenceFrom,
+            e.competence_to AS competenceTo,
+            -- 全员类型不需要统计干部和专家信息，直接设置为 0
+            0 AS isCadre,
+            NULL AS cadreType,
+            0 AS isExpert,
+            -- 岗位AI成熟度（全员类型不需要，设置为 NULL）
+            NULL AS aiMaturity,
+            e.lowestdept AS miniDeptName,
+            NULL AS isQualificationsStandard,
+            NULL AS isCertStandard
+        FROM t_employee e
+        WHERE e.employee_number IS NOT NULL
+        AND e.employee_number != ''
+        <!-- queryType=1 时，只返回有任职信息的员工 -->
+        <if test="queryType != null and queryType == 1">
+            AND e.direction_cn_name IS NOT NULL
+            AND e.direction_cn_name != ''
+            AND e.competence_from IS NOT NULL
+            AND e.competence_to IS NOT NULL
+        </if>
+        <!-- 职位类过滤 -->
+        <if test="jobCategory != null and jobCategory != ''">
+            <choose>
+                <when test="jobCategory == '非软件类'">
+                    AND e.job_category != '软件类'
+                </when>
+                <when test="jobCategory == '其他类'">
+                    AND e.job_category NOT IN ('研究类', '软件类', '系统类', '测试类', '产品开发项目管理类')
+                </when>
+                <otherwise>
+                    AND e.job_category = #{jobCategory}
+                </otherwise>
+            </choose>
+        </if>
+        ORDER BY e.employee_number
+    </select>
+
+</mapper>
+

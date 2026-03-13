@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onActivated, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElButton, ElCard, ElCascader, ElCol, ElForm, ElFormItem, ElLink, ElRow, ElSelect, ElSkeleton, ElTable, ElTableColumn, ElTag, ElMessage } from 'element-plus'
+import { ElButton, ElCard, ElCascader, ElCol, ElDialog, ElForm, ElFormItem, ElLink, ElRow, ElSelect, ElSkeleton, ElTable, ElTableColumn, ElTag, ElMessage, ElPagination } from 'element-plus'
 import { fetchSchoolDashboard } from '@/api/dashboard'
-import { getPositionStatistics, getDepartmentStatistics } from '@/api/dashboard_credit'
+import { getPositionStatistics, getDepartmentStatistics, getSchoolCreditDetailList } from '@/api/dashboard_credit'
+import type { SchoolCreditDetailResponseVO, SchoolCreditRecord } from '@/types/dashboard'
 import { normalizeRoleOptions } from '@/constants/roles'
 import { useDepartmentFilter } from '@/composables/useDepartmentFilter'
 import CreditOverviewTable from '@/components/dashboard/CreditOverviewTable.vue'
@@ -29,6 +30,21 @@ const departmentData = ref<CreditOverviewVO[]>([])
 const loadingPosition = ref(false)
 const loadingDepartment = ref(false)
 const creditRole = ref('0') // 独立的学分总览角色视图筛选
+
+// 下钻弹窗相关
+const drillDialogVisible = ref(false)
+const drillDialogTitle = ref('')
+const drillLoading = ref(false)
+const drillData = ref<SchoolCreditRecord[]>([])
+const drillTotal = ref(0)
+const drillPageNum = ref(1)
+const drillPageSize = ref(50)
+const drillParams = reactive({
+  deptCode: '',
+  deptLevel: 0,
+  categoryName: '',
+  type: 'department' as 'department' | 'position'
+})
 
 const {
   departmentTree: departmentOptions,
@@ -162,19 +178,65 @@ const handleOverviewDrill = (metric: string) => {
   goToDetail({ type: 'personal', metric })
 }
 
-const handleCreditDrillDown = (row: CreditOverviewVO, field: string) => {
-  if (field === 'baselineHeadcount') {
-    // 简单的下钻逻辑，可以根据需要扩展
-    // 对于部门维度，可能需要进入该部门的详情
-    // 对于职位维度，可能需要进入该职位的详情
-    // 这里暂时复用 SchoolDetail 路由，传递参数
-    goToDetail({
-      type: 'credit-drill',
-      categoryName: row.categoryName,
-      field: field,
-      role: creditRole.value
+// 处理基线人数下钻 - 跳转到 SchoolDetail 页面
+const handleCreditDrillDown = (row: CreditOverviewVO, field: string, type: 'department' | 'position') => {
+  if (field !== 'baselineHeadcount') return
+
+  // 获取当前选中的部门编码
+  const currentDeptCode = filters.departmentPath?.length
+    ? filters.departmentPath[filters.departmentPath.length - 1]
+    : '0'
+  const deptLevel = filters.departmentPath?.length || 0
+
+  // 跳转到 SchoolDetail 页面，传递查询参数
+  goToDetail({
+    type: type === 'position' ? 'position' : 'department',
+    deptCode: currentDeptCode,
+    deptLevel: String(deptLevel),
+    jobCategory: type === 'position' ? row.categoryName : undefined,
+    role: creditRole.value,
+  })
+}
+
+// 加载下钻明细数据
+const loadDrillData = async () => {
+  drillLoading.value = true
+  try {
+    const result = await getSchoolCreditDetailList({
+      deptCode: drillParams.deptCode,
+      deptLevel: drillParams.deptLevel,
+      roleType: parseInt(creditRole.value),
+      jobCategory: drillParams.type === 'position' ? drillParams.categoryName : undefined,
+      pageNum: drillPageNum.value,
+      pageSize: drillPageSize.value
     })
+
+    if (result) {
+      drillData.value = result.records
+      drillTotal.value = result.total
+    } else {
+      drillData.value = []
+      drillTotal.value = 0
+    }
+  } catch (error) {
+    console.error('加载明细数据失败:', error)
+    ElMessage.error('加载明细数据失败')
+  } finally {
+    drillLoading.value = false
   }
+}
+
+// 处理分页变化
+const handleDrillPageChange = (page: number) => {
+  drillPageNum.value = page
+  loadDrillData()
+}
+
+// 关闭弹窗
+const handleDrillDialogClose = () => {
+  drillDialogVisible.value = false
+  drillData.value = []
+  drillPageNum.value = 1
 }
 
 const overviewItems = computed(() => {
@@ -481,18 +543,80 @@ onActivated(() => {
           :data="departmentData"
           :loading="loadingDepartment"
           type="department"
-          @drill-down="handleCreditDrillDown"
+          @drill-down="(row, field) => handleCreditDrillDown(row, field, 'department')"
         />
-        
+
         <CreditOverviewTable
           title="职位学分总览"
           :data="positionData"
           :loading="loadingPosition"
           type="position"
-          @drill-down="handleCreditDrillDown"
+          @drill-down="(row, field) => handleCreditDrillDown(row, field, 'position')"
         />
       </el-card>
     </template>
+
+    <!-- 基线人数下钻明细弹窗 -->
+    <el-dialog
+      v-model="drillDialogVisible"
+      :title="drillDialogTitle"
+      width="90%"
+      top="5vh"
+      destroy-on-close
+      @closed="handleDrillDialogClose"
+    >
+      <el-table
+        v-loading="drillLoading"
+        :data="drillData"
+        border
+        stripe
+        height="60vh"
+        style="width: 100%"
+      >
+        <el-table-column prop="name" label="姓名" width="100" fixed="left" />
+        <el-table-column prop="employeeId" label="工号" width="120" />
+        <el-table-column prop="jobFamily" label="职位族" width="120" />
+        <el-table-column prop="jobCategory" label="职位类" width="120" />
+        <el-table-column prop="jobSubCategory" label="职位子类" width="120" />
+        <el-table-column prop="departmentLevel1" label="一级部门" width="120" />
+        <el-table-column prop="departmentLevel2" label="二级部门" width="120" />
+        <el-table-column prop="departmentLevel3" label="三级部门" width="120" />
+        <el-table-column prop="departmentLevel4" label="四级部门" width="120" />
+        <el-table-column prop="departmentLevel5" label="五级部门" width="120" />
+        <el-table-column prop="minDepartment" label="最小部门" width="150" />
+        <el-table-column prop="isCadre" label="是否干部" width="100">
+          <template #default="{ row }">{{ row.isCadre ? '是' : '否' }}</template>
+        </el-table-column>
+        <el-table-column prop="isExpert" label="是否专家" width="100">
+          <template #default="{ row }">{{ row.isExpert ? '是' : '否' }}</template>
+        </el-table-column>
+        <el-table-column prop="organizationMaturity" label="组织成熟度" width="120" />
+        <el-table-column prop="positionMaturity" label="岗位成熟度" width="120" />
+        <el-table-column prop="currentCredits" label="当前学分" width="100" />
+        <el-table-column prop="completionRate" label="达成率" width="100">
+          <template #default="{ row }">{{ row.completionRate?.toFixed ? `${row.completionRate.toFixed(1)}%` : row.completionRate }}</template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100" fixed="right">
+          <template #default="{ row }">
+            <el-tag :type="row.statusType">{{ row.status }}</el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-pagination
+            v-model:current-page="drillPageNum"
+            v-model:page-size="drillPageSize"
+            :page-sizes="[10, 20, 50, 100]"
+            :total="drillTotal"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="loadDrillData"
+            @current-change="handleDrillPageChange"
+          />
+        </div>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -634,6 +758,12 @@ onActivated(() => {
     background: transparent;
     text-decoration: underline;
   }
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
 }
 
 @media (max-width: 768px) {

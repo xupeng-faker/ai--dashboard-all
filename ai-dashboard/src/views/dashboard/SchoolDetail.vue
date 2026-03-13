@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onActivated, onMounted, ref } from 'vue'
 import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { fetchSchoolDetailData } from '@/api/dashboard'
 import { useDepartmentFilter } from '@/composables/useDepartmentFilter'
 import type { SchoolDetailData, SchoolDetailFilters } from '@/types/dashboard'
@@ -9,13 +9,33 @@ import { normalizeRoleOptions } from '@/constants/roles'
 
 const props = defineProps<{ id: string }>()
 const router = useRouter()
+const route = useRoute()
 const loading = ref(false)
 const detailData = ref<SchoolDetailData | null>(null)
-const filters = ref<SchoolDetailFilters>({
-  role: '0',
-  positionMaturity: '全部',
-  departmentPath: [],
-})
+
+// 从 URL query 参数初始化 filters
+const initFiltersFromQuery = (): SchoolDetailFilters => {
+  const query = route.query
+  const filters: SchoolDetailFilters = {
+    role: (query.role as string) || '0',
+    positionMaturity: '全部',
+    departmentPath: [],
+  }
+  
+  // 如果有 deptCode，设置部门路径
+  if (query.deptCode && query.deptCode !== '0') {
+    filters.departmentPath = [query.deptCode as string]
+  }
+  
+  // 如果有 jobCategory，设置职位类
+  if (query.jobCategory) {
+    filters.jobCategory = query.jobCategory as string
+  }
+  
+  return filters
+}
+
+const filters = ref<SchoolDetailFilters>(initFiltersFromQuery())
 
 const {
   departmentTree,
@@ -51,6 +71,8 @@ onMounted(() => {
 })
 
 onActivated(() => {
+  // 每次激活时从 query 重新初始化 filters
+  Object.assign(filters.value, initFiltersFromQuery())
   refreshDepartmentTree()
   fetchDetail()
 })

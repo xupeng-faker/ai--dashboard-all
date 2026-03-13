@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.huawei.aitransform.mapper.DepartmentInfoMapper">
+
+    <!-- 根据父部门编码查询所有子部门（返回部门ID、中文名称和层级信息） -->
+    <select id="getChildDepartments" resultType="com.huawei.aitransform.entity.DepartmentInfoVO">
+        SELECT 
+            dept_code AS deptCode,
+            dept_name AS deptName,
+            dept_level AS deptLevel
+        FROM department_info_hrms
+        WHERE parent_dept_code = #{parentDeptCode}
+        AND DATE(update_time) = '2025-11-18'
+        ORDER BY dept_code
+    </select>
+
+    <!-- 根据部门编码查询部门信息 -->
+    <select id="getDepartmentByCode" resultType="com.huawei.aitransform.entity.DepartmentInfoVO">
+        SELECT 
+            dept_code AS deptCode,
+            dept_name AS deptName,
+            dept_level AS deptLevel,
+            parent_dept_code AS parentDeptCode
+        FROM department_info_hrms
+        WHERE dept_code = #{deptCode}
+        AND DATE(update_time) = (SELECT MAX(DATE(update_time)) FROM department_info_hrms)
+        LIMIT 1
+    </select>
+
+    <!-- 查询所有四级部门 -->
+    <select id="getAllLevel4Departments" resultType="com.huawei.aitransform.entity.DepartmentInfoVO">
+        SELECT 
+            dept_code AS deptCode,
+            dept_name AS deptName,
+            dept_level AS deptLevel,
+            parent_dept_code AS parentDeptCode
+        FROM department_info_hrms
+        WHERE dept_level = '4'
+        AND DATE(update_time) = '2025-11-18'
+        ORDER BY dept_code
+    </select>
+
+    <!-- 查询指定2级部门下的所有四级部门 -->
+    <select id="getLevel4DepartmentsUnderLevel2" resultType="com.huawei.aitransform.entity.DepartmentInfoVO">
+        SELECT DISTINCT
+            d4.dept_code AS deptCode,
+            d4.dept_name AS deptName,
+            d4.dept_level AS deptLevel,
+            d4.parent_dept_code AS parentDeptCode
+        FROM department_info_hrms d4
+        INNER JOIN department_info_hrms d3 ON d4.parent_dept_code = d3.dept_code AND d3.dept_level = '3'
+        WHERE d4.dept_level = '4'
+        AND d3.parent_dept_code = #{level2DeptCode}
+        AND DATE(d4.update_time) = '2025-11-18'
+        ORDER BY d4.dept_code
+    </select>
+
+    <!-- 递归查询指定部门下的所有六级部门 -->
+    <!-- 使用多表JOIN方式实现，兼容MySQL 5.7及以下版本 -->
+    <!-- 通过多级JOIN找到所有六级部门，然后检查其祖先路径中是否包含目标部门 -->
+    <select id="getAllLevel6DepartmentsUnderDept" resultType="com.huawei.aitransform.entity.DepartmentInfoVO">
+        SELECT DISTINCT
+            d6.dept_code AS deptCode,
+            d6.dept_name AS deptName,
+            d6.dept_level AS deptLevel,
+            d6.parent_dept_code AS parentDeptCode
+        FROM department_info_hrms d6
+        LEFT JOIN department_info_hrms d5 ON d6.parent_dept_code = d5.dept_code
+        LEFT JOIN department_info_hrms d4 ON d5.parent_dept_code = d4.dept_code
+        LEFT JOIN department_info_hrms d3 ON d4.parent_dept_code = d3.dept_code
+        LEFT JOIN department_info_hrms d2 ON d3.parent_dept_code = d2.dept_code
+        LEFT JOIN department_info_hrms d1 ON d2.parent_dept_code = d1.dept_code
+        WHERE d6.dept_level = '6'
+        AND (
+            d1.dept_code = #{deptCode}
+            OR d2.dept_code = #{deptCode}
+            OR d3.dept_code = #{deptCode}
+            OR d4.dept_code = #{deptCode}
+            OR d5.dept_code = #{deptCode}
+            OR d6.parent_dept_code = #{deptCode}
+        )
+        AND DATE(d6.update_time) = '2025-11-18'
+        ORDER BY d6.dept_code
+    </select>
+
+    <!-- 递归查询指定部门下的所有子部门（包括所有层级的子部门） -->
+    <!-- 使用多表JOIN方式实现，兼容MySQL 5.7及以下版本 -->
+    <!-- 通过多级JOIN找到所有子部门，然后检查其祖先路径中是否包含目标部门 -->
+    <select id="getAllSubDepartments" resultType="com.huawei.aitransform.entity.DepartmentInfoVO">
+        SELECT DISTINCT
+            d.dept_code AS deptCode,
+            d.dept_name AS deptName,
+            d.dept_level AS deptLevel,
+            d.parent_dept_code AS parentDeptCode
+        FROM department_info_hrms d
+        LEFT JOIN department_info_hrms d1 ON d.parent_dept_code = d1.dept_code
+        LEFT JOIN department_info_hrms d2 ON d1.parent_dept_code = d2.dept_code
+        LEFT JOIN department_info_hrms d3 ON d2.parent_dept_code = d3.dept_code
+        LEFT JOIN department_info_hrms d4 ON d3.parent_dept_code = d4.dept_code
+        LEFT JOIN department_info_hrms d5 ON d4.parent_dept_code = d5.dept_code
+        LEFT JOIN department_info_hrms d6 ON d5.parent_dept_code = d6.dept_code
+        WHERE (
+            d.parent_dept_code = #{deptCode}
+            OR d1.dept_code = #{deptCode}
+            OR d2.dept_code = #{deptCode}
+            OR d3.dept_code = #{deptCode}
+            OR d4.dept_code = #{deptCode}
+            OR d5.dept_code = #{deptCode}
+            OR d6.dept_code = #{deptCode}
+        )
+        AND DATE(d.update_time) = '2025-11-18'
+        ORDER BY d.dept_code
+    </select>
+
+    <!-- 查询指定父部门下的所有三级部门 -->
+    <select id="getLevel3DepartmentsUnderParent" resultType="com.huawei.aitransform.entity.DepartmentInfoVO">
+        SELECT 
+            dept_code AS deptCode,
+            dept_name AS deptName,
+            dept_level AS deptLevel
+        FROM department_info_hrms
+        WHERE dept_level = '3'
+        AND (
+            parent_dept_code = #{parentDeptCode}
+            OR parent_dept_code IN (
+                SELECT dept_code 
+                FROM department_info_hrms 
+                WHERE parent_dept_code = #{parentDeptCode}
+                AND DATE(update_time) = (SELECT MAX(DATE(update_time)) FROM department_info_hrms)
+            )
+        )
+        AND DATE(update_time) = (SELECT MAX(DATE(update_time)) FROM department_info_hrms)
+        ORDER BY dept_code
+    </select>
+
+    <!-- 查询指定父部门下的所有四级部门 -->
+    <select id="getLevel4DepartmentsUnderParent" resultType="com.huawei.aitransform.entity.DepartmentInfoVO">
+        SELECT 
+            dept_code AS deptCode,
+            dept_name AS deptName,
+            dept_level AS deptLevel
+        FROM department_info_hrms
+        WHERE dept_level = '4'
+        AND parent_dept_code = #{parentDeptCode}
+        AND DATE(update_time) = (SELECT MAX(DATE(update_time)) FROM department_info_hrms)
+        ORDER BY dept_code
+    </select>
+
+</mapper>

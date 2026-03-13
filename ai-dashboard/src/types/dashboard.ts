@@ -932,3 +932,31 @@ export interface CreditStatisticsResponseVO {
   statistics: CreditOverviewVO[]
   totalStatistics: CreditOverviewVO
 }
+
+/**
+ * AI School学分数据明细查询响应VO
+ */
+export interface SchoolCreditDetailResponseVO {
+  records: SchoolCreditRecord[]
+  total: number
+  pageNum: number
+  pageSize: number
+  pages: number
+}
+
+/**
+ * AI School学分数据明细查询请求参数
+ */
+export interface SchoolCreditDetailRequest {
+  deptCode: string
+  deptLevel?: number
+  roleType?: number
+  jobFamily?: string
+  jobCategory?: string
+  jobSubCategory?: string
+  organizationMaturity?: string
+  positionMaturity?: string
+  queryType?: string
+  pageNum?: number
+  pageSize?: number
+}
