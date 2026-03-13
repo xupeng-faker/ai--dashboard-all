@@ -1,0 +1,41 @@
+@use './variables' as *;
+@use './mixins';
+@use './element-plus';
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: $font-family-base;
+  background-color: $background-light;
+  color: $text-main-color;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.el-card {
+  border-radius: $radius-md;
+  box-shadow: $shadow-card;
+}
+
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content {
+  flex: 1;
+  padding: $spacing-lg;
+}
+
+

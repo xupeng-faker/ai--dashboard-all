@@ -1,0 +1,29 @@
+@use 'sass:map';
+@use './variables' as *;
+
+$--colors: (
+  'primary': (
+    'base': $primary-color,
+  ),
+  'success': (
+    'base': $success-color,
+  ),
+  'warning': (
+    'base': $warning-color,
+  ),
+  'danger': (
+    'base': $danger-color,
+  ),
+  'info': (
+    'base': $info-color,
+  ),
+);
+
+:root {
+  --el-color-primary: #{map.get($--colors, 'primary', 'base')};
+  --el-color-success: #{map.get($--colors, 'success', 'base')};
+  --el-color-warning: #{map.get($--colors, 'warning', 'base')};
+  --el-color-danger: #{map.get($--colors, 'danger', 'base')};
+  --el-color-info: #{map.get($--colors, 'info', 'base')};
+}
+
