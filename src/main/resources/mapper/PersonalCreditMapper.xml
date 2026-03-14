@@ -292,4 +292,10 @@
             </choose>
         </if>
     </select>
+
+    <select id="countByDeptCodeColumn" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM t_personal_credit
+        WHERE ${columnName} = #{deptCode}
+    </select>
 </mapper>

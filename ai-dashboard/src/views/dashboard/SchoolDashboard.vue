@@ -186,6 +186,7 @@ const handleCreditDrillDown = (row: CreditOverviewVO, field: string, type: 'depa
     goToDetail({
       type: 'department',
       deptCode: row.categoryCode || '0',
+      deptLevel: '4',
       role: creditRole.value,
     })
   } else {

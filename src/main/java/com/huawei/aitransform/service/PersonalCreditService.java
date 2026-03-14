@@ -344,25 +344,9 @@ public class PersonalCreditService {
             logger.warn("Failed to get department info for {}: {}", deptCode, e.getMessage());
         }
 
-        String level = "lowest_dept"; // 默认兜底
-        
-        if (useDefaultStrategy) {
-            // 默认查询（云核心网产品线）时，查询两级下的部门（即四级部门）
-            level = "fourthdept";
-        } else if (deptInfo != null && deptInfo.getDeptLevel() != null) {
-            try {
-                int currentLevel = Integer.parseInt(deptInfo.getDeptLevel());
-                // 查询下一级
-                level = getDeptLevelColumnName(currentLevel + 1);
-            } catch (NumberFormatException e) {
-                logger.warn("Invalid dept level format: {}", deptInfo.getDeptLevel());
-            }
-        } else {
-            // 如果查不到部门信息，尝试默认处理：云核心网(3级) -> 查4级
-            if ("031562".equals(deptCode)) {
-                level = "fourthdept";
-            }
-        }
+        // 部门学分总览固定按四级部门（fourthdept）分组，categoryCode 返回 fourthdeptcode
+        // 这样前端下钻时可以直接用 fourthdeptcode 过滤学分数据明细
+        String level = "fourthdept";
 
         // SQL注入防护：校验level参数是否为合法的部门列名
         if (!isValidDeptLevel(level)) {
@@ -461,6 +445,32 @@ public class PersonalCreditService {
             return deptName.split("/")[0].trim();
         }
         return deptName;
+    }
+
+    /**
+     * 从 t_personal_credit 表推断 deptCode 所属的部门层级
+     * @param deptCode 部门编码
+     * @return 部门层级 (1-6)，如果无法推断则返回 null
+     */
+    private Integer inferDeptLevelFromCredit(String deptCode) {
+        if (deptCode == null || deptCode.trim().isEmpty()) {
+            return null;
+        }
+        
+        // 按优先级检查各层级编码字段
+        String[] levelCodeColumns = {
+            "firstdeptcode", "seconddeptcode", "thirddeptcode", 
+            "fourthdeptcode", "fifthdeptcode", "sixthdeptcode"
+        };
+        
+        for (int i = 0; i < levelCodeColumns.length; i++) {
+            Long count = personalCreditMapper.countByDeptCodeColumn(levelCodeColumns[i], deptCode);
+            if (count != null && count > 0) {
+                return i + 1; // 返回层级 1-6
+            }
+        }
+        
+        return null;
     }
 
     private boolean isValidDeptLevel(String level) {
