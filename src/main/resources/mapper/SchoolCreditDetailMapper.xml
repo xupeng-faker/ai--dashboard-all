@@ -73,7 +73,7 @@
         WHERE 1=1
         <!-- 部门条件 -->
         <choose>
-            <when test="request.deptLevel == 0 or request.deptCode == '0'">
+            <when test="request.deptLevel == 0 or request.deptCode == null or '0'.equals(request.deptCode)">
             </when>
             <when test="request.deptLevel == 1">
                 AND pc.firstdeptcode = #{request.deptCode}
@@ -126,7 +126,7 @@
         WHERE 1=1
         <!-- 部门条件 -->
         <choose>
-            <when test="request.deptLevel == 0 or request.deptCode == '0'">
+            <when test="request.deptLevel == 0 or request.deptCode == null or '0'.equals(request.deptCode)">
             </when>
             <when test="request.deptLevel == 1">
                 AND pc.firstdeptcode = #{request.deptCode}

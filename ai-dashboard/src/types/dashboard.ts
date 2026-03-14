@@ -670,6 +670,8 @@ export interface SchoolDetailData {
 
 export interface SchoolDetailFilters {
   departmentPath?: string[]
+  deptCode?: string
+  deptLevel?: number
   jobFamily?: string
   jobCategory?: string
   jobSubCategory?: string
@@ -916,6 +918,7 @@ export interface PersonalCredit {
 
 export interface CreditOverviewVO {
   categoryName: string
+  categoryCode: string
   baselineHeadcount: number
   maxScore: number
   minScore: number

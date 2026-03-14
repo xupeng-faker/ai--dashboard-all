@@ -370,7 +370,11 @@ public class PersonalCreditService {
             level = "lowest_dept";
         }
 
-        List<CreditOverviewVO> list = personalCreditMapper.getDepartmentStatistics(level, deptCode, role);
+        String levelCode = getDeptLevelCodeColumnName(level);
+        if (!isValidDeptLevel(levelCode)) {
+            levelCode = "lowest_dept_number";
+        }
+        List<CreditOverviewVO> list = personalCreditMapper.getDepartmentStatistics(level, levelCode, deptCode, role);
         calculateTimeProgressAndWarning(list);
         
         CreditStatisticsResponseVO response = new CreditStatisticsResponseVO();
@@ -400,6 +404,19 @@ public class PersonalCreditService {
             case 5: return "fifthdept";
             case 6: return "sixthdept";
             default: return "lowest_dept";
+        }
+    }
+
+    private String getDeptLevelCodeColumnName(String levelName) {
+        switch (levelName) {
+            case "firstdept": return "firstdeptcode";
+            case "seconddept": return "seconddeptcode";
+            case "thirddept": return "thirddeptcode";
+            case "fourthdept": return "fourthdeptcode";
+            case "fifthdept": return "fifthdeptcode";
+            case "sixthdept": return "sixthdeptcode";
+            case "lowest_dept": return "lowest_dept_number";
+            default: return "lowest_dept_number";
         }
     }
 
@@ -448,7 +465,8 @@ public class PersonalCreditService {
 
     private boolean isValidDeptLevel(String level) {
         Set<String> validLevels = new HashSet<>(Arrays.asList(
-            "lowest_dept", "firstdept", "seconddept", "thirddept", "fourthdept", "fifthdept", "sixthdept"
+            "lowest_dept", "firstdept", "seconddept", "thirddept", "fourthdept", "fifthdept", "sixthdept",
+            "lowest_dept_number", "firstdeptcode", "seconddeptcode", "thirddeptcode", "fourthdeptcode", "fifthdeptcode", "sixthdeptcode"
         ));
         return validLevels.contains(level);
     }

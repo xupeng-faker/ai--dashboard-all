@@ -15,6 +15,11 @@ public class CreditOverviewVO implements Serializable {
     private String categoryName;
 
     /**
+     * 类别编码（部门编码或职位类别编码，用于下钻筛选）
+     */
+    private String categoryCode;
+
+    /**
      * 基线人数
      */
     private Integer baselineHeadcount;
@@ -60,6 +65,14 @@ public class CreditOverviewVO implements Serializable {
 
     public void setCategoryName(String categoryName) {
         this.categoryName = categoryName;
+    }
+
+    public String getCategoryCode() {
+        return categoryCode;
+    }
+
+    public void setCategoryCode(String categoryCode) {
+        this.categoryCode = categoryCode;
     }
 
     public Integer getBaselineHeadcount() {

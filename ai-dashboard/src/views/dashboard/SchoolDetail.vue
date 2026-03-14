@@ -22,12 +22,15 @@ const initFiltersFromQuery = (): SchoolDetailFilters => {
     departmentPath: [],
   }
   
-  // 如果有 deptCode，设置部门路径
   if (query.deptCode && query.deptCode !== '0') {
+    filters.deptCode = query.deptCode as string
     filters.departmentPath = [query.deptCode as string]
   }
   
-  // 如果有 jobCategory，设置职位类
+  if (query.deptLevel) {
+    filters.deptLevel = parseInt(query.deptLevel as string, 10)
+  }
+  
   if (query.jobCategory) {
     filters.jobCategory = query.jobCategory as string
   }

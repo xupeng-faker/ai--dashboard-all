@@ -77,7 +77,7 @@ public interface PersonalCreditMapper {
      * @param role 角色 (可选)
      * @return 统计列表
      */
-    List<CreditOverviewVO> getDepartmentStatistics(@Param("level") String level, @Param("deptCode") String deptCode, @Param("role") String role);
+    List<CreditOverviewVO> getDepartmentStatistics(@Param("level") String level, @Param("levelCode") String levelCode, @Param("deptCode") String deptCode, @Param("role") String role);
 
     CreditOverviewVO getTotalStatistics(@Param("deptCode") String deptCode, @Param("role") String role);
 }

@@ -181,6 +181,7 @@
     <select id="getPositionStatistics" resultType="com.huawei.aitransform.entity.CreditOverviewVO">
         SELECT 
             job_category as categoryName,
+            job_category as categoryCode,
             COUNT(*) as baselineHeadcount,
             MAX(current_credit) as maxScore,
             MIN(current_credit) as minScore,
@@ -219,6 +220,7 @@
     <select id="getDepartmentStatistics" resultType="com.huawei.aitransform.entity.CreditOverviewVO">
         SELECT 
             ${level} as categoryName,
+            ${levelCode} as categoryCode,
             COUNT(*) as baselineHeadcount,
             MAX(current_credit) as maxScore,
             MIN(current_credit) as minScore,
@@ -251,7 +253,7 @@
                 </when>
             </choose>
         </if>
-        GROUP BY ${level}
+        GROUP BY ${level}, ${levelCode}
     </select>
 
     <select id="getTotalStatistics" resultType="com.huawei.aitransform.entity.CreditOverviewVO">
