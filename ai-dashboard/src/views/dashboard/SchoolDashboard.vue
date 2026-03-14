@@ -178,24 +178,27 @@ const handleOverviewDrill = (metric: string) => {
   goToDetail({ type: 'personal', metric })
 }
 
-// 处理基线人数下钻 - 跳转到 SchoolDetail 页面
+// 处理基线人数下钻 - 跳转到 SchoolDetail 页面，传递当前行的筛选条件
 const handleCreditDrillDown = (row: CreditOverviewVO, field: string, type: 'department' | 'position') => {
   if (field !== 'baselineHeadcount') return
 
-  // 获取当前选中的部门编码
-  const currentDeptCode = filters.departmentPath?.length
-    ? filters.departmentPath[filters.departmentPath.length - 1]
-    : '0'
-  const deptLevel = filters.departmentPath?.length || 0
-
-  // 跳转到 SchoolDetail 页面，传递查询参数
-  goToDetail({
-    type: type === 'position' ? 'position' : 'department',
-    deptCode: currentDeptCode,
-    deptLevel: String(deptLevel),
-    jobCategory: type === 'position' ? row.categoryName : undefined,
-    role: creditRole.value,
-  })
+  if (type === 'department') {
+    goToDetail({
+      type: 'department',
+      deptCode: row.categoryCode || '0',
+      role: creditRole.value,
+    })
+  } else {
+    const currentDeptCode = filters.departmentPath?.length
+      ? filters.departmentPath[filters.departmentPath.length - 1]
+      : '0'
+    goToDetail({
+      type: 'position',
+      deptCode: currentDeptCode,
+      jobCategory: row.categoryName,
+      role: creditRole.value,
+    })
+  }
 }
 
 // 加载下钻明细数据

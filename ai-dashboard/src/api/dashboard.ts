@@ -1428,11 +1428,13 @@ export const fetchSchoolDetailData = async (
 ): Promise<SchoolDetailData> => {
   const [deptTree] = await Promise.all([fetchDepartmentTree()])
 
-  // 构建查询参数
-  const deptCode = filters?.departmentPath?.length
-    ? filters.departmentPath[filters.departmentPath.length - 1]
-    : '0'
-  const deptLevel = filters?.departmentPath?.length || 0
+  // 构建查询参数：优先使用直接传入的 deptCode/deptLevel，否则从 departmentPath 推导
+  const deptCode: string = filters?.deptCode
+    || (filters?.departmentPath?.length
+      ? filters.departmentPath[filters.departmentPath.length - 1]
+      : undefined)
+    || '0'
+  const deptLevel = filters?.deptLevel ?? (filters?.departmentPath?.length || 0)
 
   // 调用后端接口获取学分明细数据
   const query = new URLSearchParams()

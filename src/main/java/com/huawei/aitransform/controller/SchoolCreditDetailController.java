@@ -59,7 +59,7 @@ public class SchoolCreditDetailController {
     @GetMapping("/list")
     public ResponseEntity<Result<SchoolCreditDetailResponseVO>> getCreditDetailListByDept(
             @RequestParam("deptCode") String deptCode,
-            @RequestParam(value = "deptLevel", required = false, defaultValue = "0") Integer deptLevel,
+            @RequestParam(value = "deptLevel", required = false, defaultValue = "-1") Integer deptLevel,
             @RequestParam(value = "roleType", required = false, defaultValue = "0") Integer roleType,
             @RequestParam(value = "jobFamily", required = false) String jobFamily,
             @RequestParam(value = "jobCategory", required = false) String jobCategory,
