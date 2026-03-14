@@ -32,7 +32,7 @@
         <result column="status_type" property="statusType"/>
     </resultMap>
 
-    <!-- 查询AI School学分数据明细列表 -->
+    <!-- 查询AI School学分数据明细列表（仅基于 t_personal_credit 表，缺失字段返回空值） -->
     <select id="getCreditDetailList" resultMap="SchoolCreditDetailResultMap">
         SELECT
             pc.id,
@@ -48,12 +48,12 @@
             pc.fifthdept AS department_level5,
             pc.sixthdept AS department_level6,
             pc.lowest_dept AS min_department,
-            CASE WHEN c.account IS NOT NULL THEN 1 ELSE 0 END AS is_cadre,
-            c.cadre_type,
-            CASE WHEN e.emp_num IS NOT NULL THEN 1 ELSE 0 END AS is_expert,
-            CASE WHEN elm.emp_num IS NOT NULL THEN 1 ELSE 0 END AS is_frontline_manager,
-            COALESCE(dm.maturity_level, 'L1') AS organization_maturity,
-            COALESCE(dm.maturity_level, 'L1') AS position_maturity,
+            NULL AS is_cadre,
+            NULL AS cadre_type,
+            NULL AS is_expert,
+            NULL AS is_frontline_manager,
+            NULL AS organization_maturity,
+            NULL AS position_maturity,
             pc.current_credit AS current_credits,
             pc.personal_credit_completion_rate AS completion_rate,
             pc.dept_benchmark_completion_rate AS benchmark_rate,
@@ -70,15 +70,10 @@
                 ELSE 'danger'
                 END AS status_type
         FROM t_personal_credit pc
-        LEFT JOIN t_cadre c ON pc.employee_number = c.account
-        LEFT JOIN t_expert e ON pc.employee_number = e.emp_num
-        LEFT JOIN t_entry_level_manager elm ON pc.employee_number = elm.emp_num
-        LEFT JOIN t_department_maturity dm ON pc.lowest_dept_number = dm.mini_departname_id
         WHERE 1=1
         <!-- 部门条件 -->
         <choose>
             <when test="request.deptLevel == 0 or request.deptCode == '0'">
-                <!-- 查询全部，不做部门限制 -->
             </when>
             <when test="request.deptLevel == 1">
                 AND pc.firstdeptcode = #{request.deptCode}
@@ -108,21 +103,6 @@
                 OR pc.lowest_dept_number = #{request.deptCode})
             </otherwise>
         </choose>
-        <!-- 角色类型条件 -->
-        <choose>
-            <when test="request.roleType == 1">
-                <!-- 干部 -->
-                AND c.account IS NOT NULL
-            </when>
-            <when test="request.roleType == 2">
-                <!-- 专家 -->
-                AND e.emp_num IS NOT NULL
-            </when>
-            <when test="request.roleType == 3">
-                <!-- 基层主管 -->
-                AND elm.emp_num IS NOT NULL
-            </when>
-        </choose>
         <!-- 职位族条件 -->
         <if test="request.jobFamily != null and request.jobFamily != ''">
             AND pc.job_family = #{request.jobFamily}
@@ -134,14 +114,6 @@
         <!-- 职位子类条件 -->
         <if test="request.jobSubCategory != null and request.jobSubCategory != ''">
             AND pc.job_subcategory = #{request.jobSubCategory}
-        </if>
-        <!-- 组织AI成熟度条件 -->
-        <if test="request.organizationMaturity != null and request.organizationMaturity != ''">
-            AND dm.maturity_level = #{request.organizationMaturity}
-        </if>
-        <!-- 岗位AI成熟度条件 -->
-        <if test="request.positionMaturity != null and request.positionMaturity != ''">
-            AND dm.maturity_level = #{request.positionMaturity}
         </if>
         ORDER BY pc.employee_number
         LIMIT #{request.pageSize} OFFSET #{offset}
@@ -151,15 +123,10 @@
     <select id="getCreditDetailCount" resultType="java.lang.Long">
         SELECT COUNT(*)
         FROM t_personal_credit pc
-        LEFT JOIN t_cadre c ON pc.employee_number = c.account
-        LEFT JOIN t_expert e ON pc.employee_number = e.emp_num
-        LEFT JOIN t_entry_level_manager elm ON pc.employee_number = elm.emp_num
-        LEFT JOIN t_department_maturity dm ON pc.lowest_dept_number = dm.mini_departname_id
         WHERE 1=1
         <!-- 部门条件 -->
         <choose>
             <when test="request.deptLevel == 0 or request.deptCode == '0'">
-                <!-- 查询全部，不做部门限制 -->
             </when>
             <when test="request.deptLevel == 1">
                 AND pc.firstdeptcode = #{request.deptCode}
@@ -189,21 +156,6 @@
                 OR pc.lowest_dept_number = #{request.deptCode})
             </otherwise>
         </choose>
-        <!-- 角色类型条件 -->
-        <choose>
-            <when test="request.roleType == 1">
-                <!-- 干部 -->
-                AND c.account IS NOT NULL
-            </when>
-            <when test="request.roleType == 2">
-                <!-- 专家 -->
-                AND e.emp_num IS NOT NULL
-            </when>
-            <when test="request.roleType == 3">
-                <!-- 基层主管 -->
-                AND elm.emp_num IS NOT NULL
-            </when>
-        </choose>
         <!-- 职位族条件 -->
         <if test="request.jobFamily != null and request.jobFamily != ''">
             AND pc.job_family = #{request.jobFamily}
@@ -215,14 +167,6 @@
         <!-- 职位子类条件 -->
         <if test="request.jobSubCategory != null and request.jobSubCategory != ''">
             AND pc.job_subcategory = #{request.jobSubCategory}
-        </if>
-        <!-- 组织AI成熟度条件 -->
-        <if test="request.organizationMaturity != null and request.organizationMaturity != ''">
-            AND dm.maturity_level = #{request.organizationMaturity}
-        </if>
-        <!-- 岗位AI成熟度条件 -->
-        <if test="request.positionMaturity != null and request.positionMaturity != ''">
-            AND dm.maturity_level = #{request.positionMaturity}
         </if>
     </select>
 
