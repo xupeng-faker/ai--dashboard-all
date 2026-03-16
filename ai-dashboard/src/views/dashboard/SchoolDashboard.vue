@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onActivated, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElButton, ElCard, ElCascader, ElCol, ElDialog, ElForm, ElFormItem, ElLink, ElRow, ElSelect, ElSkeleton, ElTable, ElTableColumn, ElTag, ElMessage, ElPagination } from 'element-plus'
+import { ElButton, ElCard, ElCascader, ElCol, ElDialog, ElForm, ElFormItem, ElRow, ElSelect, ElSkeleton, ElTable, ElTableColumn, ElTag, ElMessage, ElPagination } from 'element-plus'
 import { fetchSchoolDashboard } from '@/api/dashboard'
 import { getPositionStatistics, getDepartmentStatistics, getSchoolCreditDetailList } from '@/api/dashboard_credit'
 import type { SchoolCreditDetailResponseVO, SchoolCreditRecord } from '@/types/dashboard'
@@ -53,21 +53,6 @@ const {
   refreshDepartmentTree,
 } = useDepartmentFilter()
 const roleOptions = computed(() => normalizeRoleOptions(dashboardData.value?.filters.roles ?? []))
-
-const DOWNLOAD_RESOURCES = [
-  {
-    id: 'rules',
-    title: 'AI School学分规则表',
-    description: '查看最新学分来源与计算说明',
-    href: 'https://example.com/docs/ai-school-credit-rules.xlsx',
-  },
-  {
-    id: 'targets',
-    title: 'AI School学分目标表',
-    description: '下载最新学分目标与预警阈值',
-    href: 'https://example.com/docs/ai-school-credit-targets.xlsx',
-  },
-] as const
 
 const fetchData = async () => {
   loading.value = true
@@ -186,6 +171,7 @@ const handleCreditDrillDown = (row: CreditOverviewVO, field: string, type: 'depa
     goToDetail({
       type: 'department',
       deptCode: row.categoryCode || '0',
+      deptLevel: '4',
       role: creditRole.value,
     })
   } else {
@@ -304,18 +290,6 @@ onActivated(() => {
       </div>
     </header>
 
-    <el-card shadow="hover" class="resource-card">
-      <el-row :gutter="16">
-        <el-col v-for="item in DOWNLOAD_RESOURCES" :key="item.id" :xs="24" :sm="12">
-          <article class="resource-card__item">
-            <h4>{{ item.title }}</h4>
-            <p>{{ item.description }}</p>
-            <el-link type="primary" :href="item.href" target="_blank">下载文档</el-link>
-          </article>
-        </el-col>
-      </el-row>
-    </el-card>
-
     <el-card shadow="hover" class="filter-card">
       <el-form :inline="true" :model="filters" label-width="92">
         <el-form-item label="部门筛选">
@@ -364,6 +338,36 @@ onActivated(() => {
             </div>
           </el-col>
         </el-row>
+      </el-card>
+
+      <!-- 全员学分总览：放在个人数据总览下面，专家学分总览上面 -->
+      <el-card shadow="hover" class="summary-card">
+        <template #header>
+          <div class="card-header">
+            <h3>全员学分总览</h3>
+            <el-select v-model="creditRole" placeholder="角色视图" style="width: 140px" size="small">
+              <el-option v-for="role in roleOptions" :key="role.value" :label="role.label" :value="role.value" />
+            </el-select>
+          </div>
+        </template>
+        
+        <CreditOverviewTable
+          title="部门学分总览"
+          :data="departmentData"
+          :loading="loadingDepartment"
+          type="department"
+          @drill-down="(row, field) => handleCreditDrillDown(row, field, 'department')"
+        />
+
+        <!-- 暂时隐藏职位学分总览表格，后续可能启用
+        <CreditOverviewTable
+          title="职位学分总览"
+          :data="positionData"
+          :loading="loadingPosition"
+          type="position"
+          @drill-down="(row, field) => handleCreditDrillDown(row, field, 'position')"
+        />
+        -->
       </el-card>
 
       <el-card shadow="hover" class="summary-card">
@@ -530,33 +534,6 @@ onActivated(() => {
         </el-table>
       </el-card>
 
-      <!-- 新增全员学分总览板块 -->
-      <el-card shadow="hover" class="summary-card">
-        <template #header>
-          <div class="card-header">
-            <h3>全员学分总览</h3>
-            <el-select v-model="creditRole" placeholder="角色视图" style="width: 140px" size="small">
-              <el-option v-for="role in roleOptions" :key="role.value" :label="role.label" :value="role.value" />
-            </el-select>
-          </div>
-        </template>
-        
-        <CreditOverviewTable
-          title="部门学分总览"
-          :data="departmentData"
-          :loading="loadingDepartment"
-          type="department"
-          @drill-down="(row, field) => handleCreditDrillDown(row, field, 'department')"
-        />
-
-        <CreditOverviewTable
-          title="职位学分总览"
-          :data="positionData"
-          :loading="loadingPosition"
-          type="position"
-          @drill-down="(row, field) => handleCreditDrillDown(row, field, 'position')"
-        />
-      </el-card>
     </template>
 
     <!-- 基线人数下钻明细弹窗 -->
@@ -660,31 +637,6 @@ onActivated(() => {
   max-width: 720px;
 }
 
-.resource-card {
-  border: none;
-
-  &__item {
-    border-radius: $radius-lg;
-    background: rgba(58, 122, 254, 0.08);
-    padding: $spacing-lg;
-    display: flex;
-    flex-direction: column;
-    gap: $spacing-sm;
-
-    h4 {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 600;
-      color: $text-main-color;
-    }
-
-    p {
-      margin: 0;
-      color: $text-secondary-color;
-    }
-  }
-}
-
 .filter-card {
   border: none;
 
@@ -772,10 +724,6 @@ onActivated(() => {
 @media (max-width: 768px) {
   .glass-card {
     flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .resource-card__item {
     align-items: flex-start;
   }
 }

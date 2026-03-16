@@ -80,4 +80,12 @@ public interface PersonalCreditMapper {
     List<CreditOverviewVO> getDepartmentStatistics(@Param("level") String level, @Param("levelCode") String levelCode, @Param("deptCode") String deptCode, @Param("role") String role);
 
     CreditOverviewVO getTotalStatistics(@Param("deptCode") String deptCode, @Param("role") String role);
+
+    /**
+     * 根据指定的部门编码列名查询匹配的记录数
+     * @param columnName 列名（如 firstdeptcode, seconddeptcode 等）
+     * @param deptCode 部门编码
+     * @return 匹配的记录数
+     */
+    Long countByDeptCodeColumn(@Param("columnName") String columnName, @Param("deptCode") String deptCode);
 }
