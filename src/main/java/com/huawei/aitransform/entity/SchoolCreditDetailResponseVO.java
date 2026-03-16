@@ -35,6 +35,21 @@ public class SchoolCreditDetailResponseVO implements Serializable {
      */
     private Integer pages;
 
+    /**
+     * 前端筛选项：职位族列表
+     */
+    private List<String> jobFamilies;
+
+    /**
+     * 前端筛选项：职位类列表
+     */
+    private List<String> jobCategories;
+
+    /**
+     * 前端筛选项：职位子类列表
+     */
+    private List<String> jobSubCategories;
+
     public SchoolCreditDetailResponseVO() {
     }
 
@@ -76,5 +91,29 @@ public class SchoolCreditDetailResponseVO implements Serializable {
 
     public void setPages(Integer pages) {
         this.pages = pages;
+    }
+
+    public List<String> getJobFamilies() {
+        return jobFamilies;
+    }
+
+    public void setJobFamilies(List<String> jobFamilies) {
+        this.jobFamilies = jobFamilies;
+    }
+
+    public List<String> getJobCategories() {
+        return jobCategories;
+    }
+
+    public void setJobCategories(List<String> jobCategories) {
+        this.jobCategories = jobCategories;
+    }
+
+    public List<String> getJobSubCategories() {
+        return jobSubCategories;
+    }
+
+    public void setJobSubCategories(List<String> jobSubCategories) {
+        this.jobSubCategories = jobSubCategories;
     }
 }

@@ -8,7 +8,10 @@ import com.huawei.aitransform.service.SchoolCreditDetailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * AI School学分数据明细查询Service实现类
@@ -40,6 +43,27 @@ public class SchoolCreditDetailServiceImpl implements SchoolCreditDetailService 
         response.setPageNum(request.getPageNum());
         response.setPageSize(request.getPageSize());
         response.setPages(pages);
+
+        // 基于当前查询结果构建前端筛选项（初始化时的“全量可选项”）
+        Set<String> jobFamilies = new LinkedHashSet<>();
+        Set<String> jobCategories = new LinkedHashSet<>();
+        Set<String> jobSubCategories = new LinkedHashSet<>();
+
+        for (SchoolCreditDetailVO vo : records) {
+            if (vo.getJobFamily() != null && !vo.getJobFamily().isEmpty()) {
+                jobFamilies.add(vo.getJobFamily());
+            }
+            if (vo.getJobCategory() != null && !vo.getJobCategory().isEmpty()) {
+                jobCategories.add(vo.getJobCategory());
+            }
+            if (vo.getJobSubCategory() != null && !vo.getJobSubCategory().isEmpty()) {
+                jobSubCategories.add(vo.getJobSubCategory());
+            }
+        }
+
+        response.setJobFamilies(new ArrayList<>(jobFamilies));
+        response.setJobCategories(new ArrayList<>(jobCategories));
+        response.setJobSubCategories(new ArrayList<>(jobSubCategories));
 
         return response;
     }
