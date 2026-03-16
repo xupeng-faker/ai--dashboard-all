@@ -109,6 +109,7 @@ onActivated(() => {
             :props="cascaderProps"
             placeholder="请选择部门"
             clearable
+            :disabled="!!filters.deptCode"
             @change="handleFilterChange"
             style="width: 100%"
           />
@@ -175,22 +176,6 @@ onActivated(() => {
             <el-option v-for="role in roleOptions" :key="role.value" :label="role.label" :value="role.value" />
           </el-select>
         </el-col>
-        <el-col :xs="24" :sm="12" :md="6">
-          <label>岗位成熟度：</label>
-          <el-select
-            v-model="filters.positionMaturity"
-            placeholder="请选择岗位成熟度"
-            @change="handleFilterChange"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="maturity in detailData.filters.maturityOptions"
-              :key="maturity.value"
-              :label="maturity.label"
-              :value="maturity.value"
-            />
-          </el-select>
-        </el-col>
       </el-row>
     </el-card>
 
@@ -212,20 +197,7 @@ onActivated(() => {
           <el-table-column prop="departmentLevel3" label="三级部门" width="120" />
           <el-table-column prop="departmentLevel4" label="四级部门" width="120" />
           <el-table-column prop="departmentLevel5" label="五级部门" width="120" />
-          <el-table-column prop="departmentLevel6" label="六级部门" width="120" />
           <el-table-column prop="minDepartment" label="最小部门" width="150" />
-          <el-table-column prop="isCadre" label="是否干部" width="100">
-            <template #default="{ row }">{{ row.isCadre ? '是' : '否' }}</template>
-          </el-table-column>
-          <el-table-column prop="cadreType" label="干部类型" width="120" />
-          <el-table-column prop="isExpert" label="是否专家" width="100">
-            <template #default="{ row }">{{ row.isExpert ? '是' : '否' }}</template>
-          </el-table-column>
-          <el-table-column prop="isFrontlineManager" label="是否基层主管" width="120">
-            <template #default="{ row }">{{ row.isFrontlineManager ? '是' : '否' }}</template>
-          </el-table-column>
-          <el-table-column prop="organizationMaturity" label="组织AI成熟度" width="140" />
-          <el-table-column prop="positionMaturity" label="岗位AI成熟度" width="140" />
           <el-table-column prop="currentCredits" label="当前学分" width="100" />
           <el-table-column prop="completionRate" label="学分达成率" width="120">
             <template #default="{ row }">{{ formatPercent(row.completionRate) }}</template>
@@ -233,25 +205,12 @@ onActivated(() => {
           <el-table-column prop="benchmarkRate" label="所在最小部门标杆学分达成率" width="220">
             <template #default="{ row }">{{ formatPercent(row.benchmarkRate) }}</template>
           </el-table-column>
-          <el-table-column prop="completionDate" label="学分达成日期" width="140" />
           <el-table-column prop="scheduleTarget" label="时间进度学分目标" width="160" />
           <el-table-column prop="status" label="学分状态预警" width="120" fixed="right">
             <template #default="{ row }">
               <el-tag :type="row.statusType">{{ row.status }}</el-tag>
             </template>
           </el-table-column>
-        </el-table>
-      </el-card>
-
-      <!-- AI School学分规则表明细 -->
-      <el-card shadow="hover" class="detail-block">
-        <template #header>
-          <h3>AI School学分规则表明细</h3>
-        </template>
-        <el-table :data="detailData.rules" border style="width: 100%">
-          <el-table-column prop="sourceType" label="学分来源类型" width="150" />
-          <el-table-column prop="content" label="训练内容" />
-          <el-table-column prop="credits" label="学分值" width="120" />
         </el-table>
       </el-card>
     </template>

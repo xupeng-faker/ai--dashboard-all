@@ -360,6 +360,46 @@ public class PersonalCreditService {
         }
         List<CreditOverviewVO> list = personalCreditMapper.getDepartmentStatistics(level, levelCode, deptCode, role);
         calculateTimeProgressAndWarning(list);
+
+        // 只展示指定顺序的部门，但总计仍然基于数据库全量数据
+        // 指定顺序：
+        // 1. 分组核心网产品部
+        // 2. 云核心网CS&IMS产品部
+        // 3. 融合视频产品部
+        // 4. 云核心网软件平台部
+        // 5. 云核心网解决方案增值开发部
+        // 6. 云核心网解决方案部
+        // 7. 云核心网架构与设计部
+        // 8. 云核心网技术规划部
+        // 9. 云核心网研究部
+        // 10. 云核心网产品工程与IT装备部
+        List<String> orderedDeptNames = Arrays.asList(
+                "分组核心网产品部",
+                "云核心网CS&IMS产品部",
+                "融合视频产品部",
+                "云核心网软件平台部",
+                "云核心网解决方案增值开发部",
+                "云核心网解决方案部",
+                "云核心网架构与设计部",
+                "云核心网技术规划部",
+                "云核心网研究部",
+                "云核心网产品工程与IT装备部"
+        );
+        Map<String, Integer> orderMap = new HashMap<>();
+        for (int i = 0; i < orderedDeptNames.size(); i++) {
+            orderMap.put(orderedDeptNames.get(i), i);
+        }
+
+        List<CreditOverviewVO> filteredAndOrdered = list.stream()
+                .filter(vo -> {
+                    String name = getChineseDeptName(vo.getCategoryName());
+                    return orderMap.containsKey(name);
+                })
+                .sorted(Comparator.comparingInt(vo -> {
+                    String name = getChineseDeptName(((CreditOverviewVO) vo).getCategoryName());
+                    return orderMap.getOrDefault(name, Integer.MAX_VALUE);
+                }))
+                .collect(Collectors.toList());
         
         CreditStatisticsResponseVO response = new CreditStatisticsResponseVO();
         response.setDeptCode(deptCode);
@@ -371,9 +411,9 @@ public class PersonalCreditService {
             deptName = "云核心网产品线";
         }
         response.setDeptName(deptName);
-        response.setStatistics(list);
+        response.setStatistics(filteredAndOrdered);
         
-        // 计算总计
+        // 计算总计（保留全量数据库统计）
         response.setTotalStatistics(calculateTotalStatistics(list, deptCode, role));
         
         return response;
