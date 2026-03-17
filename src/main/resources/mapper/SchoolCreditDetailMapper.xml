@@ -58,7 +58,12 @@
             pc.personal_credit_completion_rate AS completion_rate,
             pc.dept_benchmark_completion_rate AS benchmark_rate,
             DATE_FORMAT(pc.credit_completion_date, '%Y-%m-%d') AS completion_date,
-            pc.target_credit AS schedule_target,
+            ROUND(
+                DATEDIFF(CURDATE(), DATE(CONCAT(YEAR(CURDATE()), '-01-01')))
+                / DATEDIFF(DATE(CONCAT(YEAR(CURDATE()), '-12-31')), DATE(CONCAT(YEAR(CURDATE()), '-01-01')))
+                * pc.target_credit,
+                1
+            ) AS schedule_target,
             CASE
                 WHEN pc.personal_credit_completion_rate >= 100 THEN '正常'
                 WHEN pc.personal_credit_completion_rate >= 80 THEN '轻度预警'
