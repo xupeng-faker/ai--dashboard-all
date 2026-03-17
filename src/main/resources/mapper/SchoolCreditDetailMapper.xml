@@ -47,7 +47,7 @@
             pc.fourthdept AS department_level4,
             pc.fifthdept AS department_level5,
             pc.sixthdept AS department_level6,
-            pc.lowest_dept AS min_department,
+            SUBSTRING_INDEX(pc.lowest_dept, '/', 1) AS min_department,
             NULL AS is_cadre,
             NULL AS cadre_type,
             NULL AS is_expert,
