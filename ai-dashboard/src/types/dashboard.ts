@@ -945,6 +945,9 @@ export interface SchoolCreditDetailResponseVO {
   pageNum: number
   pageSize: number
   pages: number
+  jobFamilies?: string[]
+  jobCategories?: string[]
+  jobSubCategories?: string[]
 }
 
 /**

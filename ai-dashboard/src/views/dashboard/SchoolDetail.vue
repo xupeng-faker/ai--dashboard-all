@@ -187,26 +187,26 @@ onActivated(() => {
           <h3>AI School学分数据明细</h3>
         </template>
         <el-table :data="detailData.records" border style="width: 100%" max-height="600">
-          <el-table-column prop="name" label="姓名" width="100" fixed="left" />
-          <el-table-column prop="employeeId" label="工号" width="120" />
-          <el-table-column prop="jobFamily" label="职位族" width="120" />
-          <el-table-column prop="jobCategory" label="职位类" width="120" />
-          <el-table-column prop="jobSubCategory" label="职位子类" width="120" />
-          <el-table-column prop="departmentLevel1" label="一级部门" width="120" />
-          <el-table-column prop="departmentLevel2" label="二级部门" width="120" />
-          <el-table-column prop="departmentLevel3" label="三级部门" width="120" />
-          <el-table-column prop="departmentLevel4" label="四级部门" width="120" />
-          <el-table-column prop="departmentLevel5" label="五级部门" width="120" />
-          <el-table-column prop="minDepartment" label="最小部门" width="150" />
-          <el-table-column prop="currentCredits" label="当前学分" width="100" />
-          <el-table-column prop="completionRate" label="学分达成率" width="120">
+          <el-table-column prop="name" label="姓名" width="100" fixed="left" align="center" header-align="center" show-overflow-tooltip />
+          <el-table-column prop="employeeId" label="工号" width="120" align="center" header-align="center" show-overflow-tooltip />
+          <el-table-column prop="jobFamily" label="职位族" width="120" align="center" header-align="center" show-overflow-tooltip />
+          <el-table-column prop="jobCategory" label="职位类" width="120" align="center" header-align="center" show-overflow-tooltip />
+          <el-table-column prop="jobSubCategory" label="职位子类" width="120" align="center" header-align="center" show-overflow-tooltip />
+          <el-table-column prop="departmentLevel1" label="一级部门" width="120" align="center" header-align="center" show-overflow-tooltip />
+          <el-table-column prop="departmentLevel2" label="二级部门" width="120" align="center" header-align="center" show-overflow-tooltip />
+          <el-table-column prop="departmentLevel3" label="三级部门" width="120" align="center" header-align="center" show-overflow-tooltip />
+          <el-table-column prop="departmentLevel4" label="四级部门" width="120" align="center" header-align="center" show-overflow-tooltip />
+          <el-table-column prop="departmentLevel5" label="五级部门" width="120" align="center" header-align="center" show-overflow-tooltip />
+          <el-table-column prop="minDepartment" label="最小部门" width="150" align="center" header-align="center" show-overflow-tooltip />
+          <el-table-column prop="currentCredits" label="当前学分" width="100" align="center" header-align="center" show-overflow-tooltip />
+          <el-table-column prop="completionRate" label="学分达成率" width="120" align="center" header-align="center" show-overflow-tooltip>
             <template #default="{ row }">{{ formatPercent(row.completionRate) }}</template>
           </el-table-column>
-          <el-table-column prop="benchmarkRate" label="所在最小部门标杆学分达成率" width="220">
+          <el-table-column prop="benchmarkRate" label="所在最小部门标杆学分达成率" width="220" align="center" header-align="center" show-overflow-tooltip>
             <template #default="{ row }">{{ formatPercent(row.benchmarkRate) }}</template>
           </el-table-column>
-          <el-table-column prop="scheduleTarget" label="时间进度学分目标" width="160" />
-          <el-table-column prop="status" label="学分状态预警" width="120" fixed="right">
+          <el-table-column prop="scheduleTarget" label="时间进度学分目标" width="160" align="center" header-align="center" show-overflow-tooltip />
+          <el-table-column prop="status" label="学分状态预警" width="120" fixed="right" align="center" header-align="center">
             <template #default="{ row }">
               <el-tag :type="row.statusType">{{ row.status }}</el-tag>
             </template>

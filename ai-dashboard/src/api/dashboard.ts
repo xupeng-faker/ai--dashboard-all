@@ -1459,12 +1459,18 @@ export const fetchSchoolDetailData = async (
   query.append('pageSize', '100')
 
   let records: SchoolCreditRecord[] = []
+  let jobFamilies: string[] = []
+  let jobCategories: string[] = []
+  let jobSubCategories: string[] = []
   try {
     const response = await get<Result<SchoolCreditDetailResponseVO>>(
       `/api/school-credit-detail/list?${query.toString()}`
     )
     if (response.code === 200 && response.data) {
       records = response.data.records
+      jobFamilies = response.data.jobFamilies ?? []
+      jobCategories = response.data.jobCategories ?? []
+      jobSubCategories = response.data.jobSubCategories ?? []
     }
   } catch (error) {
     console.error('获取学分明细数据失败:', error)
@@ -1475,9 +1481,9 @@ export const fetchSchoolDetailData = async (
     rules: [],
     filters: {
       departmentTree: deptTree,
-      jobFamilies: ['研发族', '产品族', '运维族', '安全族'],
-      jobCategories: ['软件开发', 'AI开发', '产品管理', '系统运维', '安全研究'],
-      jobSubCategories: ['后端开发', '前端开发', '测试开发', '算法工程师', '产品经理', '产品设计', 'SRE工程师', '运维工程师', '安全工程师', '渗透测试'],
+      jobFamilies,
+      jobCategories,
+      jobSubCategories,
       roles: [
         { label: '全员', value: '0' },
         { label: '干部', value: '1' },

@@ -552,6 +552,8 @@ onActivated(() => {
         stripe
         height="60vh"
         style="width: 100%"
+        :header-cell-style="{ background: 'rgba(58, 122, 254, 0.06)', color: '#2f3b52', textAlign: 'center' }"
+        :cell-style="{ textAlign: 'center' }"
       >
         <el-table-column prop="name" label="姓名" width="100" fixed="left" />
         <el-table-column prop="employeeId" label="工号" width="120" />
@@ -563,7 +565,11 @@ onActivated(() => {
         <el-table-column prop="departmentLevel3" label="三级部门" width="120" />
         <el-table-column prop="departmentLevel4" label="四级部门" width="120" />
         <el-table-column prop="departmentLevel5" label="五级部门" width="120" />
-        <el-table-column prop="minDepartment" label="最小部门" width="150" />
+        <el-table-column prop="minDepartment" label="最小部门" width="150">
+          <template #default="{ row }">
+            {{ row.minDepartment ? row.minDepartment.split('/')[0] : '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="isCadre" label="是否干部" width="100">
           <template #default="{ row }">{{ row.isCadre ? '是' : '否' }}</template>
         </el-table-column>
