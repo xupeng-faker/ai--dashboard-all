@@ -197,7 +197,11 @@ onActivated(() => {
           <el-table-column prop="departmentLevel3" label="三级部门" width="120" align="center" header-align="center" show-overflow-tooltip />
           <el-table-column prop="departmentLevel4" label="四级部门" width="120" align="center" header-align="center" show-overflow-tooltip />
           <el-table-column prop="departmentLevel5" label="五级部门" width="120" align="center" header-align="center" show-overflow-tooltip />
-          <el-table-column prop="minDepartment" label="最小部门" width="150" align="center" header-align="center" show-overflow-tooltip />
+          <el-table-column prop="minDepartment" label="最小部门" width="150" align="center" header-align="center" show-overflow-tooltip>
+            <template #default="{ row }">
+              {{ row.minDepartment ? row.minDepartment.split('/')[0] : '-' }}
+            </template>
+          </el-table-column>
           <el-table-column prop="currentCredits" label="当前学分" width="100" align="center" header-align="center" show-overflow-tooltip />
           <el-table-column prop="completionRate" label="学分达成率" width="120" align="center" header-align="center" show-overflow-tooltip>
             <template #default="{ row }">{{ formatPercent(row.completionRate) }}</template>
