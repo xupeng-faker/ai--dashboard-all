@@ -160,15 +160,15 @@ const handleAllStaffDrill = (row: SchoolAllStaffSummaryRow, field: string) => {
   })
 }
 
-/** 个人数据总览下钻：进入当前登录用户的个人课程学分详情页 */
+/** 个人数据总览下钻：以 /api/personal-credit/overview 返回的 employeeNumber 为准，再进入个人课程学分详情（课程与学分接口均按该工号查询） */
 const handleOverviewDrill = async (_metric: string) => {
+  const credit = await fetchPersonalCreditOverview()
   let emp =
-    dashboardData.value?.personalOverview?.employeeNumber != null
-      ? String(dashboardData.value.personalOverview.employeeNumber).trim()
+    credit?.employeeNumber != null && String(credit.employeeNumber).trim() !== ''
+      ? String(credit.employeeNumber).trim()
       : ''
-  if (!emp) {
-    const credit = await fetchPersonalCreditOverview()
-    emp = credit?.employeeNumber != null ? String(credit.employeeNumber).trim() : ''
+  if (!emp && dashboardData.value?.personalOverview?.employeeNumber != null) {
+    emp = String(dashboardData.value.personalOverview.employeeNumber).trim()
   }
   // 本地演示：与 demo-token / Cookie wE001234 对齐，库内需有 seed_demo_login_user_credit.sql
   if (!emp && import.meta.env.DEV) {
@@ -176,7 +176,7 @@ const handleOverviewDrill = async (_metric: string) => {
   }
   if (!emp) {
     ElMessage.warning(
-      '未获取到当前用户工号。请执行库脚本 seed_demo_login_user_credit.sql（写入 E001234），或确认已登录且 t_personal_credit 有当前用户数据'
+      '未获取到当前用户工号。请确认已登录且 personal-credit/overview 能返回 employeeNumber，或已同步 t_personal_credit'
     )
     return
   }
