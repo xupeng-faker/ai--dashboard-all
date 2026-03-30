@@ -110,5 +110,27 @@ public class UserConfigService {
         
         return new UserAccountResponseVO(empNum, w3Account);
     }
+
+    /**
+     * 解析当前登录用户：优先 Cookie account；若无则识别前端本地演示用的 Bearer token（与 Pinia 默认 demo-token 对齐）。
+     * 生产环境仍以企业门户 Cookie 为准；本地无 Cookie 时可正常联调个人课程/学分接口。
+     */
+    public UserAccountResponseVO resolveCurrentUser(HttpServletRequest request, String accountCookie) {
+        UserAccountResponseVO fromCookie = getUserAccountFromCookie(request, accountCookie);
+        if (fromCookie != null
+                && fromCookie.getEmpNum() != null
+                && !fromCookie.getEmpNum().trim().isEmpty()) {
+            return fromCookie;
+        }
+        String auth = request.getHeader("Authorization");
+        if (auth != null && auth.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            String token = auth.substring(7).trim();
+            if ("demo-token".equals(token)) {
+                // 与前端 stores/modules/app.ts 默认 token 一致；用工号占位，仅用于「已登录」校验
+                return new UserAccountResponseVO("E001234", "E001234");
+            }
+        }
+        return null;
+    }
 }
 

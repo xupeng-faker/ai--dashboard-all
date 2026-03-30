@@ -34,7 +34,7 @@ public class UserConfigController {
             HttpServletRequest request,
             @CookieValue(value = "account", required = false) String accountCookie) {
         try {
-            UserAccountResponseVO accountInfo = userConfigService.getUserAccountFromCookie(request, accountCookie);
+            UserAccountResponseVO accountInfo = userConfigService.resolveCurrentUser(request, accountCookie);
             return ResponseEntity.ok(Result.success("查询成功", accountInfo));
         } catch (Exception e) {
             return ResponseEntity.ok(Result.error(500, "系统异常：" + e.getMessage()));

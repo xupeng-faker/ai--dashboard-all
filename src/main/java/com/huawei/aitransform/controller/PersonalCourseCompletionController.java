@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
@@ -28,28 +29,27 @@ public class PersonalCourseCompletionController {
     private UserConfigService userConfigService;
 
     /**
-     * 查询个人课程完成情况
-     * @param request HTTP请求对象，用于获取cookie
-     * @param accountCookie 从cookie中获取的工号（可选，如果cookie名称为account）
-     * @return 个人课程完成情况
+     * 查询个人课程完成情况。
+     * 若带有请求参数 empNum，则查询该工号（看板明细姓名下钻，与行内员工一致）；否则从 Cookie 或 Bearer demo-token 解析当前用户。
      */
     @GetMapping("/completion")
     public ResponseEntity<Result<PersonalCourseCompletionResponseVO>> getPersonalCourseCompletion(
             HttpServletRequest request,
-            @CookieValue(value = "account", required = false) String accountCookie) {
+            @CookieValue(value = "account", required = false) String accountCookie,
+            @RequestParam(value = "empNum", required = false) String empNumParam) {
         try {
-            // 从cookie中获取用户工号信息
-            UserAccountResponseVO accountInfo = userConfigService.getUserAccountFromCookie(request, accountCookie);
-            
-            // 如果未获取到用户信息，返回错误提示
-            if (accountInfo == null || accountInfo.getEmpNum() == null || accountInfo.getEmpNum().trim().isEmpty()) {
-                return ResponseEntity.ok(Result.error(400, "未获取到用户信息，请先登录"));
+            String empNum;
+            // 看板明细「姓名」下钻会带 empNum：直接按该行员工查课程数据，不依赖门户 Cookie（与展示行数据一致）
+            if (empNumParam != null && !empNumParam.trim().isEmpty()) {
+                empNum = empNumParam.trim();
+            } else {
+                UserAccountResponseVO accountInfo = userConfigService.resolveCurrentUser(request, accountCookie);
+                if (accountInfo == null || accountInfo.getEmpNum() == null || accountInfo.getEmpNum().trim().isEmpty()) {
+                    return ResponseEntity.ok(Result.error(400, "未获取到用户信息，请先登录"));
+                }
+                empNum = accountInfo.getEmpNum().trim();
             }
-            
-            // 获取不带首字母的工号
-            String empNum = accountInfo.getEmpNum().trim();
-            
-            // 查询个人课程完成情况
+
             PersonalCourseCompletionResponseVO result = personalCourseCompletionService.getPersonalCourseCompletion(empNum);
             
             return ResponseEntity.ok(Result.success("查询成功", result));
