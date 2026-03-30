@@ -1,14 +1,51 @@
 <script setup lang="ts">
-import { computed, onActivated, onMounted, ref } from 'vue'
+import { computed, onActivated, onMounted, ref, watch } from 'vue'
 import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
-import { useRouter } from 'vue-router'
-import { ElAvatar, ElButton, ElCard, ElEmpty, ElLink, ElMessage, ElSelect, ElOption, ElSkeleton, ElSpace, ElTable, ElTableColumn, ElTag } from 'element-plus'
-import { fetchPersonalCourseCompletion } from '@/api/dashboard'
-import type { PersonalCourseCompletionResponse, CourseInfo } from '@/types/dashboard'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  ElAvatar,
+  ElButton,
+  ElCard,
+  ElDescriptions,
+  ElDescriptionsItem,
+  ElEmpty,
+  ElLink,
+  ElMessage,
+  ElOption,
+  ElSelect,
+  ElSkeleton,
+  ElSpace,
+  ElTable,
+  ElTableColumn,
+  ElTag,
+} from 'element-plus'
+import { fetchPersonalCourseCompletionDetailed, fetchPersonalCreditOverview } from '@/api/dashboard'
+import type { PersonalCourseCompletionResponse, CourseInfo, PersonalCredit } from '@/types/dashboard'
 
 const router = useRouter()
+const route = useRoute()
+
+/** 与明细行 employeeId 一致；训战入口可仅用 empNum */
+const resolveEmployeeKey = (): string | undefined => {
+  const id = route.query.employeeId
+  const emp = route.query.empNum
+  if (typeof id === 'string' && id.trim()) return id.trim()
+  if (typeof emp === 'string' && emp.trim()) return emp.trim()
+  return undefined
+}
+
+const isSchoolCreditPage = computed(() => route.name === 'PersonalSchoolCreditDetail')
+const pageTitle = computed(() =>
+  isSchoolCreditPage.value ? '个人课程学分详情' : '个人训战课程详情'
+)
+const pageSubtitle = computed(() =>
+  isSchoolCreditPage.value ? '查看该行员工学分与课程完课情况' : '查看个人训战课程完课情况'
+)
+const levelColumnLabel = computed(() => (isSchoolCreditPage.value ? '课程分级' : '训战分类'))
+
 const loading = ref(false)
 const detailData = ref<PersonalCourseCompletionResponse | null>(null)
+const creditOverview = ref<PersonalCredit | null>(null)
 const selectedCategory = ref<string>('全部')
 
 const categoryOptions = computed(() => {
@@ -168,26 +205,62 @@ const getSpanMethod = ({ row, column, rowIndex, columnIndex }: any) => {
   }
 }
 
-const fetchDetail = async () => {
+const loadAll = async () => {
   loading.value = true
   try {
-    const data = await fetchPersonalCourseCompletion()
-    if (data) {
-      detailData.value = data
-    } else {
-      ElMessage.warning('获取个人课程详情失败')
+    const key = resolveEmployeeKey()
+    if (isSchoolCreditPage.value && !key) {
+      detailData.value = null
+      creditOverview.value = null
+      ElMessage.warning('缺少员工工号参数')
+      return
     }
+
+    const [courseResult, credit] = await Promise.all([
+      fetchPersonalCourseCompletionDetailed(key),
+      isSchoolCreditPage.value && key
+        ? fetchPersonalCreditOverview({ account: key })
+        : Promise.resolve(null),
+    ])
+
+    if (courseResult.ok) {
+      detailData.value = courseResult.data
+    } else {
+      detailData.value = null
+      ElMessage.warning(courseResult.message || '获取个人课程详情失败')
+    }
+
+    creditOverview.value = credit
   } catch (error) {
-    console.error('获取个人课程详情异常：', error)
-    ElMessage.error('获取个人课程详情异常')
+    console.error('获取个人详情异常：', error)
+    ElMessage.error('获取个人详情异常')
   } finally {
     loading.value = false
   }
 }
 
 const handleBack = () => {
+  if (route.name === 'PersonalSchoolCreditDetail') {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back()
+    } else {
+      router.push({ name: 'SchoolDashboard' })
+    }
+    return
+  }
+  if (route.query.from === 'school') {
+    router.push({ name: 'SchoolDashboard' })
+    return
+  }
   router.push({ name: 'TrainingDashboard' })
 }
+
+watch(
+  () => [route.name, route.query.employeeId, route.query.empNum],
+  () => {
+    loadAll()
+  }
+)
 
 const formatPercent = (value: number) => `${(value ?? 0).toFixed(1)}%`
 
@@ -228,12 +301,11 @@ const tableDataWithTotal = computed(() => {
 })
 
 onMounted(() => {
-  fetchDetail()
+  loadAll()
 })
 
 onActivated(() => {
-  // 重新获取数据，fetchDetail 中会根据查询参数设置分类筛选条件
-  fetchDetail()
+  loadAll()
 })
 </script>
 
@@ -243,7 +315,7 @@ onActivated(() => {
       <div class="header-left">
         <el-button type="primary" text :icon="ArrowLeft" @click="handleBack">返回列表页</el-button>
         <div>
-          <h2>个人训战课程详情</h2>
+          <h2>{{ pageTitle }}</h2>
           <div v-if="detailData" class="user-info">
             <el-avatar 
               :src="avatarUrl" 
@@ -255,20 +327,43 @@ onActivated(() => {
               <span class="emp-name">{{ detailData.empName || '未获取' }}</span>
             </span>
           </div>
-          <p v-else>查看个人训战课程完课情况</p>
+          <p v-else>{{ pageSubtitle }}</p>
         </div>
       </div>
       <el-space>
-        <el-button type="primary" plain :icon="Refresh" @click="fetchDetail">刷新数据</el-button>
+        <el-button type="primary" plain :icon="Refresh" @click="loadAll">刷新数据</el-button>
       </el-space>
     </header>
 
     <el-skeleton :rows="8" animated v-if="loading" />
-    <template v-else-if="detailData">
-      <!-- 个人训战总览统计 -->
+    <template v-else>
+      <el-card
+        v-if="isSchoolCreditPage && creditOverview"
+        shadow="hover"
+        class="summary-card credit-summary-card"
+      >
+        <template #header>
+          <h3>个人学分数据（本条员工）</h3>
+        </template>
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="工号">{{ creditOverview.employeeNumber || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="姓名">{{ creditOverview.lastName || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="目标学分">{{ creditOverview.targetCredit ?? '—' }}</el-descriptions-item>
+          <el-descriptions-item label="当前学分">{{ creditOverview.currentCredit ?? '—' }}</el-descriptions-item>
+          <el-descriptions-item label="个人学分达成率">
+            {{ creditOverview.personalCreditCompletionRate != null ? `${Number(creditOverview.personalCreditCompletionRate).toFixed(1)}%` : '—' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="部门标杆达成率">
+            {{ creditOverview.deptBenchmarkCompletionRate != null ? `${Number(creditOverview.deptBenchmarkCompletionRate).toFixed(1)}%` : '—' }}
+          </el-descriptions-item>
+        </el-descriptions>
+      </el-card>
+
+      <template v-if="detailData">
+      <!-- 课程完课统计 -->
       <el-card shadow="hover" class="summary-card">
         <template #header>
-          <h3>个人训战总览</h3>
+          <h3>个人学分总览</h3>
         </template>
         <el-table 
           :data="tableDataWithTotal" 
@@ -277,7 +372,7 @@ onActivated(() => {
           :header-cell-class-name="() => 'personal-overview-header'"
           :row-class-name="({ row }) => row.courseLevel === '总计' ? 'personal-overview-total-row' : ''"
         >
-          <el-table-column prop="courseLevel" label="训战分类" min-width="120" align="center" />
+          <el-table-column prop="courseLevel" :label="levelColumnLabel" min-width="120" align="center" />
           <el-table-column prop="totalCourses" label="课程总数" min-width="140" align="center" />
           <el-table-column prop="targetCourses" label="目标完课数" min-width="140" align="center" />
           <el-table-column prop="completedCourses" label="实际完课数" min-width="140" align="center" />
@@ -293,7 +388,7 @@ onActivated(() => {
           <div class="filter-header">
             <h3>目标课程列表</h3>
             <div class="filter-controls">
-              <span class="filter-label">训战分类：</span>
+              <span class="filter-label">{{ levelColumnLabel }}：</span>
               <el-select v-model="selectedCategory" placeholder="选择分类" style="width: 180px">
                 <el-option
                   v-for="option in categoryOptions"
@@ -314,7 +409,7 @@ onActivated(() => {
           :span-method="getSpanMethod"
         >
           <el-table-column prop="bigType" label="课程主分类" min-width="140" align="center" />
-          <el-table-column prop="category" label="训战分类" width="120" align="center" />
+          <el-table-column prop="category" :label="levelColumnLabel" width="120" align="center" />
           <el-table-column prop="courseName" label="课程名称" min-width="200" align="center">
             <template #default="{ row }">
               <el-link
@@ -343,8 +438,12 @@ onActivated(() => {
           </el-table-column>
         </el-table>
       </el-card>
+      </template>
+      <el-empty
+        v-else
+        :description="isSchoolCreditPage ? '暂无课程完课数据' : '暂无详情数据'"
+      />
     </template>
-    <el-empty v-else description="暂无详情数据" />
   </section>
 </template>
 

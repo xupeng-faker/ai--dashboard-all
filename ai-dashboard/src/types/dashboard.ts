@@ -563,6 +563,9 @@ export interface SchoolPersonalOverview {
   expectedCompletionDate: string
   status: '正常' | '轻度预警' | '滞后预警'
   statusType: 'success' | 'warning' | 'danger'
+  /** fetchSchoolDashboard 中由 personalCredit 展开，用于跳转到当前用户个人详情 */
+  employeeNumber?: string
+  lastName?: string
 }
 
 export interface SchoolRoleSummaryRow {

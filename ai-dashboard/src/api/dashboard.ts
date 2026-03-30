@@ -1164,24 +1164,45 @@ export const fetchTrainingDetail = async (
   }
 }
 
+export type PersonalCourseCompletionFetchResult =
+  | { ok: true; data: PersonalCourseCompletionResponse }
+  | { ok: false; message: string; code: number }
+
+/**
+ * 获取个人课程完成情况（含失败原因，便于页面提示）
+ */
+export const fetchPersonalCourseCompletionDetailed = async (
+  empNum?: string
+): Promise<PersonalCourseCompletionFetchResult> => {
+  try {
+    const qs =
+      empNum != null && String(empNum).trim() !== ''
+        ? `?empNum=${encodeURIComponent(String(empNum).trim())}`
+        : ''
+    const response = await get<Result<PersonalCourseCompletionResponse>>(
+      `/personal-course/completion${qs}`
+    )
+    if (response.code === 200) {
+      return { ok: true, data: response.data }
+    }
+    console.warn('获取个人课程完成情况失败：', response.code, response.message)
+    return { ok: false, message: response.message || '请求失败', code: response.code }
+  } catch (error) {
+    console.error('获取个人课程完成情况异常：', error)
+    const message = error instanceof Error ? error.message : '网络异常'
+    return { ok: false, message, code: -1 }
+  }
+}
+
 /**
  * 获取个人课程完成情况
  * @returns 个人课程完成情况数据
  */
-export const fetchPersonalCourseCompletion = async (): Promise<PersonalCourseCompletionResponse | null> => {
-  try {
-    const response = await get<Result<PersonalCourseCompletionResponse>>(
-      '/personal-course/completion'
-    )
-    if (response.code === 200) {
-      return response.data
-    }
-    console.warn('获取个人课程完成情况失败：', response.message)
-    return null
-  } catch (error) {
-    console.error('获取个人课程完成情况异常：', error)
-    return null
-  }
+export const fetchPersonalCourseCompletion = async (
+  empNum?: string
+): Promise<PersonalCourseCompletionResponse | null> => {
+  const r = await fetchPersonalCourseCompletionDetailed(empNum)
+  return r.ok ? r.data : null
 }
 
 export const fetchTrainingDashboard = async (
@@ -1339,11 +1360,17 @@ export const fetchCertificationAuditRecords = async (): Promise<{
 
 /**
  * 获取个人学分概览数据
- * @returns 个人学分概览数据
+ * @param opts.account 可选，与明细行 employeeId 一致，查询该员工的学分数据
  */
-export const fetchPersonalCreditOverview = async (): Promise<PersonalCredit | null> => {
+export const fetchPersonalCreditOverview = async (opts?: {
+  account?: string
+}): Promise<PersonalCredit | null> => {
   try {
-    const response = await get<Result<PersonalCredit>>('/api/personal-credit/overview')
+    const qs =
+      opts?.account != null && String(opts.account).trim() !== ''
+        ? `?account=${encodeURIComponent(String(opts.account).trim())}`
+        : ''
+    const response = await get<Result<PersonalCredit>>(`/api/personal-credit/overview${qs}`)
     if (response.code === 200) {
       return response.data
     }

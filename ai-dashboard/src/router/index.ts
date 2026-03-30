@@ -94,6 +94,17 @@ const routes: RouteRecordRaw[] = [
         props: true,
       },
       {
+        path: 'school/personal-credit-detail',
+        name: 'PersonalSchoolCreditDetail',
+        component: () => import('@/views/dashboard/PersonalTrainingDetail.vue'),
+        meta: {
+          title: '个人课程学分详情',
+          requiresAuth: true,
+          keepAlive: false,
+          dashboardTab: 'school',
+        },
+      },
+      {
         path: 'certification',
         name: 'CertificationDashboard',
         component: () => import('@/views/dashboard/CertificationDashboard.vue'),

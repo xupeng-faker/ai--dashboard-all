@@ -6,6 +6,7 @@ import { fetchTrainingDetail } from '@/api/dashboard'
 import { useDepartmentFilter } from '@/composables/useDepartmentFilter'
 import { normalizeRoleOptions } from '@/constants/roles'
 import type {
+  TrainingBattleRecord,
   TrainingDetailData,
   TrainingDetailFilters,
 } from '@/types/dashboard'
@@ -81,6 +82,14 @@ const formatBoolean = (value: boolean) => (value ? '是' : '否')
 
 const handleCourseClick = (url: string) => {
   window.open(url, '_blank')
+}
+
+const handlePersonalNameDrill = (row: TrainingBattleRecord) => {
+  if (!row.employeeId?.trim()) return
+  router.push({
+    name: 'PersonalTrainingDetail',
+    query: { empNum: row.employeeId.trim(), from: 'training' },
+  })
 }
 
 watch(
@@ -216,7 +225,13 @@ onActivated(() => {
           max-height="600"
           highlight-current-row
         >
-          <el-table-column prop="name" label="姓名" width="100" fixed="left" />
+          <el-table-column prop="name" label="姓名" width="100" fixed="left">
+            <template #default="{ row }">
+              <el-button link type="primary" class="name-drill-link" @click="handlePersonalNameDrill(row)">
+                {{ row.name }}
+              </el-button>
+            </template>
+          </el-table-column>
           <el-table-column prop="employeeId" label="工号" width="120" />
           <el-table-column prop="jobCategory" label="职位类" width="120" />
           <el-table-column prop="jobSubCategory" label="职位子类" width="120" />
@@ -366,6 +381,11 @@ onActivated(() => {
     font-size: 18px;
     font-weight: 600;
   }
+}
+
+.name-drill-link {
+  font-weight: 600;
+  padding: 0;
 }
 
 @media (max-width: 768px) {

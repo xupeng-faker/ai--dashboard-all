@@ -21,9 +21,13 @@ export const useDashboardTabs = () => {
   })
 
   watch(
-    () => route.path,
-    (path) => {
-      const matched = DASHBOARD_TABS.find((tab) => path.startsWith(tab.route))
+    () => [route.path, route.meta.dashboardTab] as const,
+    () => {
+      if (route.meta.dashboardTab) {
+        appStore.setActiveTab(route.meta.dashboardTab)
+        return
+      }
+      const matched = DASHBOARD_TABS.find((tab) => route.path.startsWith(tab.route))
       if (matched) {
         appStore.setActiveTab(matched.name)
       }

@@ -2,10 +2,11 @@
 import { computed, onActivated, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElButton, ElCard, ElCascader, ElCol, ElDialog, ElForm, ElFormItem, ElRow, ElSelect, ElSkeleton, ElTable, ElTableColumn, ElTag, ElMessage, ElPagination } from 'element-plus'
-import { fetchSchoolDashboard } from '@/api/dashboard'
+import { fetchSchoolDashboard, fetchPersonalCreditOverview } from '@/api/dashboard'
 import { getPositionStatistics, getDepartmentStatistics, getSchoolCreditDetailList } from '@/api/dashboard_credit'
 import type { SchoolCreditDetailResponseVO, SchoolCreditRecord } from '@/types/dashboard'
 import { normalizeRoleOptions } from '@/constants/roles'
+import { DEV_MOCK_USER } from '@/utils/devMockAuth'
 import { useDepartmentFilter } from '@/composables/useDepartmentFilter'
 import CreditOverviewTable from '@/components/dashboard/CreditOverviewTable.vue'
 import type {
@@ -159,8 +160,30 @@ const handleAllStaffDrill = (row: SchoolAllStaffSummaryRow, field: string) => {
   })
 }
 
-const handleOverviewDrill = (metric: string) => {
-  goToDetail({ type: 'personal', metric })
+/** 个人数据总览下钻：进入当前登录用户的个人课程学分详情页 */
+const handleOverviewDrill = async (_metric: string) => {
+  let emp =
+    dashboardData.value?.personalOverview?.employeeNumber != null
+      ? String(dashboardData.value.personalOverview.employeeNumber).trim()
+      : ''
+  if (!emp) {
+    const credit = await fetchPersonalCreditOverview()
+    emp = credit?.employeeNumber != null ? String(credit.employeeNumber).trim() : ''
+  }
+  // 本地演示：与 demo-token / Cookie wE001234 对齐，库内需有 seed_demo_login_user_credit.sql
+  if (!emp && import.meta.env.DEV) {
+    emp = DEV_MOCK_USER.employeeId
+  }
+  if (!emp) {
+    ElMessage.warning(
+      '未获取到当前用户工号。请执行库脚本 seed_demo_login_user_credit.sql（写入 E001234），或确认已登录且 t_personal_credit 有当前用户数据'
+    )
+    return
+  }
+  router.push({
+    name: 'PersonalSchoolCreditDetail',
+    query: { employeeId: emp },
+  })
 }
 
 // 处理基线人数下钻 - 跳转到 SchoolDetail 页面，传递当前行的筛选条件

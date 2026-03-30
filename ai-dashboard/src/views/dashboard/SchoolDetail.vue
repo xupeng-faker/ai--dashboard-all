@@ -4,7 +4,7 @@ import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
 import { useRouter, useRoute } from 'vue-router'
 import { fetchSchoolDetailData } from '@/api/dashboard'
 import { useDepartmentFilter } from '@/composables/useDepartmentFilter'
-import type { SchoolDetailData, SchoolDetailFilters } from '@/types/dashboard'
+import type { SchoolCreditRecord, SchoolDetailData, SchoolDetailFilters } from '@/types/dashboard'
 import { normalizeRoleOptions } from '@/constants/roles'
 
 const props = defineProps<{ id: string }>()
@@ -67,6 +67,14 @@ const handleFilterChange = () => {
 }
 
 const formatPercent = (value: number) => `${value.toFixed(1)}%`
+
+const handlePersonalNameDrill = (row: SchoolCreditRecord) => {
+  if (!row.employeeId?.trim()) return
+  router.push({
+    name: 'PersonalSchoolCreditDetail',
+    query: { employeeId: row.employeeId.trim() },
+  })
+}
 
 onMounted(() => {
   initDepartmentTree()
@@ -187,7 +195,13 @@ onActivated(() => {
           <h3>AI School学分数据明细</h3>
         </template>
         <el-table :data="detailData.records" border style="width: 100%" max-height="600">
-          <el-table-column prop="name" label="姓名" width="100" fixed="left" align="center" header-align="center" show-overflow-tooltip />
+          <el-table-column prop="name" label="姓名" width="100" fixed="left" align="center" header-align="center" show-overflow-tooltip>
+            <template #default="{ row }">
+              <el-button link type="primary" class="name-drill-link" @click="handlePersonalNameDrill(row)">
+                {{ row.name }}
+              </el-button>
+            </template>
+          </el-table-column>
           <el-table-column prop="employeeId" label="工号" width="120" align="center" header-align="center" show-overflow-tooltip />
           <el-table-column prop="jobFamily" label="职位族" width="120" align="center" header-align="center" show-overflow-tooltip />
           <el-table-column prop="jobCategory" label="职位类" width="120" align="center" header-align="center" show-overflow-tooltip />
@@ -300,6 +314,11 @@ onActivated(() => {
     font-size: 18px;
     font-weight: 600;
   }
+}
+
+.name-drill-link {
+  font-weight: 600;
+  padding: 0;
 }
 
 @media (max-width: 768px) {
