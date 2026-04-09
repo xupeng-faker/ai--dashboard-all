@@ -154,4 +154,10 @@ public class SchoolCreditDetailRequestVO implements Serializable {
     public void setPageSize(Integer pageSize) {
         this.pageSize = pageSize;
     }
+
+    public int getOffset() {
+        int pn = pageNum  == null || pageNum  < 1 ? 1  : pageNum;
+        int ps = pageSize == null || pageSize < 1 ? 50 : pageSize;
+        return (pn - 1) * ps;
+    }
 }

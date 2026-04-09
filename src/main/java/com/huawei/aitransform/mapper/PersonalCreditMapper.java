@@ -4,6 +4,9 @@ import com.huawei.aitransform.entity.CreditOverviewVO;
 import com.huawei.aitransform.entity.PersonalCredit;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import com.huawei.aitransform.entity.SchoolCreditDetailRequestVO;
+import com.huawei.aitransform.entity.SchoolCreditDetailVO;
+import com.huawei.aitransform.entity.SchoolRoleSummaryVO;
 
 import java.util.List;
 
@@ -88,4 +91,23 @@ public interface PersonalCreditMapper {
      * @return 匹配的记录数
      */
     Long countByDeptCodeColumn(@Param("columnName") String columnName, @Param("deptCode") String deptCode);
+
+    /**
+     * 删除不存在的
+     * @param incomingEmployeeNumbers 不存在列表
+     */
+    void deleteNotInEmployeeNumbers(@Param("list") List<String> incomingEmployeeNumbers);
+
+    /**
+     * 查询学分明细列表（分页用，配合 PageHelper 或手动 LIMIT）
+     */
+    List<SchoolCreditDetailVO> getSchoolCreditDetailList(SchoolCreditDetailRequestVO request);
+
+    /**
+     * 查询学分明细总数
+     */
+    Long countSchoolCreditDetail(SchoolCreditDetailRequestVO request);
+
+    List<SchoolRoleSummaryVO> getExpertRoleSummary(@Param("deptCode") String deptCode);
+    List<SchoolRoleSummaryVO> getCadreRoleSummary(@Param("deptCode") String deptCode);
 }

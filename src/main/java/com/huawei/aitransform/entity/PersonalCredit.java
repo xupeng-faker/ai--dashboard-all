@@ -147,6 +147,16 @@ public class PersonalCredit implements Serializable {
     private Date creditCompletionDate;
 
     /**
+     * 干部岗位AI成熟度等级（来自t_cadre.position_ai_maturity）
+     */
+    private String cadrePositionAiMaturity;
+
+    /**
+     * 专家岗位AI成熟度等级（来自t_expert.position_ai_maturity）
+     */
+    private String expertPositionAiMaturity;
+
+    /**
      * 创建时间
      */
     private Date createTime;
@@ -370,6 +380,22 @@ public class PersonalCredit implements Serializable {
 
     public void setCreditCompletionDate(Date creditCompletionDate) {
         this.creditCompletionDate = creditCompletionDate;
+    }
+
+    public String getCadrePositionAiMaturity() {
+        return cadrePositionAiMaturity;
+    }
+
+    public void setCadrePositionAiMaturity(String cadrePositionAiMaturity) {
+        this.cadrePositionAiMaturity = cadrePositionAiMaturity;
+    }
+
+    public String getExpertPositionAiMaturity() {
+        return expertPositionAiMaturity;
+    }
+
+    public void setExpertPositionAiMaturity(String expertPositionAiMaturity) {
+        this.expertPositionAiMaturity = expertPositionAiMaturity;
     }
 
     public Date getCreateTime() {

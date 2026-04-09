@@ -10,7 +10,11 @@ import com.huawei.aitransform.entity.PersonalCredit;
 import com.huawei.aitransform.mapper.CoursePlanningInfoMapper;
 import com.huawei.aitransform.mapper.PersonalCourseCompletionMapper;
 import com.huawei.aitransform.mapper.PersonalCreditMapper;
-import com.huawei.aitransform.service.DepartmentInfoService;
+import com.huawei.aitransform.entity.SchoolCreditDetailRequestVO;
+import com.huawei.aitransform.entity.SchoolCreditDetailResponseVO;
+import com.huawei.aitransform.entity.SchoolCreditDetailVO;
+import com.huawei.aitransform.entity.SchoolRoleSummaryResponseVO;
+import com.huawei.aitransform.entity.SchoolRoleSummaryVO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,7 +87,7 @@ public class PersonalCreditService {
 
         Map<Integer, BigDecimal> courseCreditMap = new HashMap<>();
         Map<String, BigDecimal> courseNumberCreditMap = new HashMap<>(); // Number -> Credit
-        
+
         for (CoursePlanningInfoVO course : allCourses) {
             BigDecimal credit = BigDecimal.ZERO;
             try {
@@ -123,7 +127,7 @@ public class PersonalCreditService {
         List<String> employeeNumbers = employees.stream()
                 .map(EmployeeSyncDataVO::getEmployeeNumber)
                 .collect(Collectors.toList());
-        
+
         // 批量查询现有记录
         Map<String, PersonalCredit> existingCreditMap = new HashMap<>();
         if (!employeeNumbers.isEmpty()) {
@@ -154,28 +158,34 @@ public class PersonalCreditService {
                 personalCreditMapper.batchInsertOrUpdate(toSaveList.subList(i, end));
             }
         }
+        List<String> incomingEmployeeNumbers = toSaveList.stream()
+                .map(PersonalCredit::getEmployeeNumber)
+                .collect(Collectors.toList());
+
+        // 删除不在传入列表中的记录
+        personalCreditMapper.deleteNotInEmployeeNumbers(incomingEmployeeNumbers);
 
         // 5. 计算并更新部门标杆
         updateDeptBenchmarks();
-        
+
         logger.info("Finished syncing personal credits for {} employees.", employees.size());
     }
 
-    private PersonalCredit calculateEmployeeCredit(EmployeeSyncDataVO employee, 
-                                                Map<Integer, BigDecimal> courseCreditMap,
-                                                Map<String, BigDecimal> courseNumberCreditMap,
-                                                Map<String, List<Integer>> deptSelectionMap,
-                                                List<CoursePlanningInfoVO> allCourses,
-                                                Map<String, PersonalCredit> existingCreditMap) {
+    private PersonalCredit calculateEmployeeCredit(EmployeeSyncDataVO employee,
+                                                   Map<Integer, BigDecimal> courseCreditMap,
+                                                   Map<String, BigDecimal> courseNumberCreditMap,
+                                                   Map<String, List<Integer>> deptSelectionMap,
+                                                   List<CoursePlanningInfoVO> allCourses,
+                                                   Map<String, PersonalCredit> existingCreditMap) {
         String empNum = employee.getEmployeeNumber();
         String fourthDeptCode = employee.getFourthdeptcode();
 
         // 计算目标学分
         BigDecimal targetCredit = BigDecimal.ZERO;
         List<String> targetCourseNumbers = new ArrayList<>();
-        
+
         List<Integer> selectedCourseIds = deptSelectionMap.get(fourthDeptCode);
-        
+
         // 如果部门没有选课，或者是空列表，默认使用所有课程？
         // 原逻辑：if (targetCourseIds.isEmpty()) useAllCourses = true;
         // 这里沿用原逻辑：如果没选课，则是所有课程
@@ -185,7 +195,7 @@ public class PersonalCreditService {
             for (CoursePlanningInfoVO course : allCourses) {
                 BigDecimal credit = BigDecimal.ZERO;
                 try {
-                     if (course.getCredit() != null) credit = new BigDecimal(course.getCredit());
+                    if (course.getCredit() != null) credit = new BigDecimal(course.getCredit());
                 } catch (Exception e) {}
                 targetCredit = targetCredit.add(credit);
                 targetCourseNumbers.add(course.getCourseNumber());
@@ -238,20 +248,43 @@ public class PersonalCreditService {
         toSave.setSixthdeptcode(employee.getSixthdeptcode());
         toSave.setSixthdept(getChineseDeptName(employee.getSixthdept()));
 
-        // 直接映射职位类、职位子类
-        toSave.setJobCategory(employee.getJobCategory());
-        toSave.setJobSubcategory(employee.getJobSubcategory());
+        // 处理岗位信息：t_employee_sync.job_category (岗位族-岗位类-岗位子类)
+        String fullJobCategory = employee.getJobCategory();
+        if (fullJobCategory != null && !fullJobCategory.isEmpty()) {
+            String[] parts = fullJobCategory.split("-");
+            if (parts.length >= 3) {
+                toSave.setJobFamily(parts[0]);
+                toSave.setJobCategory(parts[1]);
+                toSave.setJobSubcategory(parts[2]);
+            } else if (parts.length == 2) {
+                toSave.setJobFamily(parts[0]);
+                toSave.setJobCategory(parts[1]);
+                toSave.setJobSubcategory(null);
+            } else {
+                toSave.setJobCategory(fullJobCategory);
+                toSave.setJobFamily(null);
+                toSave.setJobSubcategory(null);
+            }
+        } else {
+            toSave.setJobFamily(null);
+            toSave.setJobCategory(null);
+            toSave.setJobSubcategory(null);
+        }
 
         toSave.setTargetCredit(targetCredit);
         toSave.setCurrentCredit(currentCredit);
         toSave.setPersonalCreditCompletionRate(completionRate);
         toSave.setDeptBenchmarkCompletionRate(BigDecimal.ZERO); // 先置0，后续统一更新
 
+        // 设置AI成熟度字段
+        toSave.setCadrePositionAiMaturity(employee.getCadrePositionAiMaturity());
+        toSave.setExpertPositionAiMaturity(employee.getExpertPositionAiMaturity());
+
         // 处理达成日期
         if (existing != null) {
             toSave.setCreditCompletionDate(existing.getCreditCompletionDate());
         }
-        
+
         // 如果当前已达标（current >= target）且之前没有日期，则设置当前时间
         // 注意：targetCredit可能为0，需处理
         if (targetCredit.compareTo(BigDecimal.ZERO) > 0 && currentCredit.compareTo(targetCredit) >= 0) {
@@ -259,10 +292,10 @@ public class PersonalCreditService {
                 toSave.setCreditCompletionDate(new Date());
             }
         } else if (targetCredit.compareTo(BigDecimal.ZERO) == 0 && currentCredit.compareTo(BigDecimal.ZERO) >= 0) {
-             // 目标为0，视为达标？通常应该有学分。这里假设不处理或视为达标
-             if (toSave.getCreditCompletionDate() == null) {
-                 toSave.setCreditCompletionDate(new Date());
-             }
+            // 目标为0，视为达标？通常应该有学分。这里假设不处理或视为达标
+            if (toSave.getCreditCompletionDate() == null) {
+                toSave.setCreditCompletionDate(new Date());
+            }
         }
 
         return toSave;
@@ -271,12 +304,12 @@ public class PersonalCreditService {
     private void updateDeptBenchmarks() {
         // 1. 获取所有涉及的最小部门
         List<String> lowestDeptNumbers = personalCreditMapper.getAllLowestDeptNumbers();
-        
+
         // 2. 遍历部门，计算最大达成率并更新
         for (String deptNum : lowestDeptNumbers) {
             BigDecimal maxRate = personalCreditMapper.getMaxCompletionRateByDept(deptNum);
             if (maxRate == null) maxRate = BigDecimal.ZERO;
-            
+
             personalCreditMapper.updateBenchmarkRateByDept(deptNum, maxRate);
         }
     }
@@ -295,10 +328,10 @@ public class PersonalCreditService {
 
         List<CreditOverviewVO> list = personalCreditMapper.getPositionStatistics(deptCode, role);
         calculateTimeProgressAndWarning(list);
-        
+
         CreditStatisticsResponseVO response = new CreditStatisticsResponseVO();
         response.setDeptCode(deptCode);
-        
+
         String deptName = "未知部门";
         try {
             DepartmentInfoVO deptInfo = departmentService.getDepartmentInfo(deptCode);
@@ -315,10 +348,10 @@ public class PersonalCreditService {
         }
         response.setDeptName(deptName);
         response.setStatistics(list);
-        
+
         // 计算总计
         response.setTotalStatistics(calculateTotalStatistics(list, deptCode, role));
-        
+
         return response;
     }
 
@@ -344,20 +377,36 @@ public class PersonalCreditService {
             logger.warn("Failed to get department info for {}: {}", deptCode, e.getMessage());
         }
 
-        // 部门学分总览固定按四级部门（fourthdept）分组，categoryCode 返回 fourthdeptcode
-        // 这样前端下钻时可以直接用 fourthdeptcode 过滤学分数据明细
-        String level = "fourthdept";
+        String level = "lowest_dept"; // 默认兜底
+
+        if (useDefaultStrategy) {
+            // 默认查询（云核心网产品线）时，查询两级下的部门（即四级部门）
+            level = "fourthdept";
+        } else if (deptInfo != null && deptInfo.getDeptLevel() != null) {
+            try {
+                int currentLevel = Integer.parseInt(deptInfo.getDeptLevel());
+                // 查询下一级
+                level = getDeptLevelColumnName(currentLevel + 1);
+            } catch (NumberFormatException e) {
+                logger.warn("Invalid dept level format: {}", deptInfo.getDeptLevel());
+            }
+        } else {
+            // 如果查不到部门信息，尝试默认处理：云核心网(3级) -> 查4级
+            if ("031562".equals(deptCode)) {
+                level = "fourthdept";
+            }
+        }
 
         // SQL注入防护：校验level参数是否为合法的部门列名
         if (!isValidDeptLevel(level)) {
             logger.warn("Invalid department level column name: {}, falling back to lowest_dept", level);
             level = "lowest_dept";
         }
-
         String levelCode = getDeptLevelCodeColumnName(level);
         if (!isValidDeptLevel(levelCode)) {
             levelCode = "lowest_dept_number";
         }
+
         List<CreditOverviewVO> list = personalCreditMapper.getDepartmentStatistics(level, levelCode, deptCode, role);
         calculateTimeProgressAndWarning(list);
 
@@ -390,20 +439,27 @@ public class PersonalCreditService {
             orderMap.put(orderedDeptNames.get(i), i);
         }
 
-        List<CreditOverviewVO> filteredAndOrdered = list.stream()
-                .filter(vo -> {
-                    String name = getChineseDeptName(vo.getCategoryName());
-                    return orderMap.containsKey(name);
-                })
-                .sorted(Comparator.comparingInt(vo -> {
-                    String name = getChineseDeptName(((CreditOverviewVO) vo).getCategoryName());
-                    return orderMap.getOrDefault(name, Integer.MAX_VALUE);
-                }))
-                .collect(Collectors.toList());
-        
+        List<CreditOverviewVO> finalList;
+        if (useDefaultStrategy) {
+            // 默认查询四级部门时，按白名单过滤并排序
+            finalList = list.stream()
+                    .filter(vo -> {
+                        String name = getChineseDeptName(vo.getCategoryName());
+                        return orderMap.containsKey(name);
+                    })
+                    .sorted(Comparator.comparingInt(vo -> {
+                        String name = getChineseDeptName(((CreditOverviewVO) vo).getCategoryName());
+                        return orderMap.getOrDefault(name, Integer.MAX_VALUE);
+                    }))
+                    .collect(Collectors.toList());
+        } else {
+            // 选了具体部门下钻时，直接返回，不做白名单过滤
+            finalList = list;
+        }
+
         CreditStatisticsResponseVO response = new CreditStatisticsResponseVO();
         response.setDeptCode(deptCode);
-        
+
         String deptName = "未知部门";
         if (deptInfo != null) {
             deptName = deptInfo.getDeptName();
@@ -411,11 +467,11 @@ public class PersonalCreditService {
             deptName = "云核心网产品线";
         }
         response.setDeptName(deptName);
-        response.setStatistics(filteredAndOrdered);
-        
+        response.setStatistics(finalList);
+
         // 计算总计（保留全量数据库统计）
         response.setTotalStatistics(calculateTotalStatistics(list, deptCode, role));
-        
+
         return response;
     }
 
@@ -447,7 +503,7 @@ public class PersonalCreditService {
     private CreditOverviewVO calculateTotalStatistics(List<CreditOverviewVO> list, String deptCode, String role) {
         // 使用数据库直接查询总计数据，避免因人员挂靠导致手动累加不准确的问题
         CreditOverviewVO total = personalCreditMapper.getTotalStatistics(deptCode, role);
-        
+
         if (total == null) {
             total = new CreditOverviewVO();
             total.setCategoryName("总计");
@@ -458,7 +514,7 @@ public class PersonalCreditService {
             total.setAverageCurrentCredit(BigDecimal.ZERO);
             total.setAverageTargetCredit(BigDecimal.ZERO);
         }
-        
+
         // 总计的时间进度和预警
         Calendar calendar = Calendar.getInstance();
         int dayOfYear = calendar.get(Calendar.DAY_OF_YEAR);
@@ -466,13 +522,13 @@ public class PersonalCreditService {
         BigDecimal timeProgress = new BigDecimal(dayOfYear).divide(new BigDecimal(totalDays), 4, RoundingMode.HALF_UP)
                 .multiply(new BigDecimal("100")).setScale(2, RoundingMode.HALF_UP);
         total.setTimeProgress(timeProgress);
-        
+
         if (total.getAchievementRate() != null) {
             total.setIsWarning(total.getAchievementRate().compareTo(timeProgress) < 0);
         } else {
-             total.setIsWarning(true);
+            total.setIsWarning(true);
         }
-        
+
         return total;
     }
 
@@ -496,20 +552,20 @@ public class PersonalCreditService {
         if (deptCode == null || deptCode.trim().isEmpty()) {
             return null;
         }
-        
+
         // 按优先级检查各层级编码字段
         String[] levelCodeColumns = {
-            "firstdeptcode", "seconddeptcode", "thirddeptcode", 
+            "firstdeptcode", "seconddeptcode", "thirddeptcode",
             "fourthdeptcode", "fifthdeptcode", "sixthdeptcode"
         };
-        
+
         for (int i = 0; i < levelCodeColumns.length; i++) {
             Long count = personalCreditMapper.countByDeptCodeColumn(levelCodeColumns[i], deptCode);
             if (count != null && count > 0) {
                 return i + 1; // 返回层级 1-6
             }
         }
-        
+
         return null;
     }
 
@@ -536,6 +592,87 @@ public class PersonalCreditService {
                 vo.setIsWarning(vo.getAchievementRate().compareTo(timeProgress) < 0);
             } else {
                 vo.setIsWarning(true); // 无达成率视为预警
+            }
+        }
+    }
+
+    /**
+     * 获取 AI School 看板 - 专家 & 干部学分总览
+     * @param deptCode 部门编码，null / "" / "0" 时查全量
+     */
+    public SchoolRoleSummaryResponseVO getRoleSummary(String deptCode) {
+        String dept = (deptCode == null || deptCode.trim().isEmpty() || "0".equals(deptCode.trim()))
+                ? null : deptCode;
+
+        List<SchoolRoleSummaryVO> expertList = personalCreditMapper.getExpertRoleSummary(dept);
+        List<SchoolRoleSummaryVO> cadreList  = personalCreditMapper.getCadreRoleSummary(dept);
+
+        fillRoleSummaryStatus(expertList);
+        fillRoleSummaryStatus(cadreList);
+
+        SchoolRoleSummaryResponseVO vo = new SchoolRoleSummaryResponseVO();
+        vo.setExpertSummary(expertList);
+        vo.setCadreSummary(cadreList);
+        return vo;
+    }
+
+    /**
+     * 获取 AI School 看板 - 基线人数下钻明细（分页）
+     */
+    public SchoolCreditDetailResponseVO getSchoolCreditDetailList(SchoolCreditDetailRequestVO request) {
+        int pageNum  = (request.getPageNum()  == null || request.getPageNum()  < 1) ? 1  : request.getPageNum();
+        int pageSize = (request.getPageSize() == null || request.getPageSize() < 1) ? 50 : request.getPageSize();
+        request.setPageNum(pageNum);
+        request.setPageSize(pageSize);
+
+        long total = personalCreditMapper.countSchoolCreditDetail(request);
+        List<SchoolCreditDetailVO> records = total > 0
+                ? personalCreditMapper.getSchoolCreditDetailList(request)
+                : Collections.emptyList();
+
+        fillDetailStatus(records);
+
+        SchoolCreditDetailResponseVO vo = new SchoolCreditDetailResponseVO();
+        vo.setRecords(records);
+        vo.setTotal(total);
+        vo.setPageNum(pageNum);
+        vo.setPageSize(pageSize);
+        vo.setPages((int) Math.ceil((double) total / pageSize));
+        return vo;
+    }
+
+// ---- 私有辅助方法 ----
+
+    private void fillRoleSummaryStatus(List<SchoolRoleSummaryVO> rows) {
+        java.time.LocalDate today = java.time.LocalDate.now();
+        double progress = (double) today.getDayOfYear()
+                / (today.isLeapYear() ? 366 : 365);
+
+        for (SchoolRoleSummaryVO row : rows) {
+            double target = row.getTargetCredits() == null ? 0.0 : row.getTargetCredits();
+            row.setScheduleTarget(Math.round(target * progress * 10.0) / 10.0);
+
+            double rate = row.getCompletionRate() == null ? 0.0 : row.getCompletionRate();
+            if (rate >= 100.0) {
+                row.setStatus("正常");  row.setStatusType("success");
+            } else if (rate >= 60.0) {
+                row.setStatus("预警");  row.setStatusType("warning");
+            } else {
+                row.setStatus("滞后");  row.setStatusType("danger");
+            }
+        }
+    }
+
+    private void fillDetailStatus(List<SchoolCreditDetailVO> records) {
+        for (SchoolCreditDetailVO row : records) {
+            double rate = row.getCompletionRate() == null ? 0.0
+                    : row.getCompletionRate().doubleValue();
+            if (rate >= 100.0) {
+                row.setStatus("正常");  row.setStatusType("success");
+            } else if (rate >= 60.0) {
+                row.setStatus("预警");  row.setStatusType("warning");
+            } else {
+                row.setStatus("滞后");  row.setStatusType("danger");
             }
         }
     }
