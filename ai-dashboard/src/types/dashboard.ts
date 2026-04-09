@@ -45,6 +45,51 @@ export interface TrainingPersonalOverviewRow {
   completionRate: number
 }
 
+/** 部门课程完成率（/department-completion-rate 单条） */
+export interface DepartmentCourseCompletionRateRow {
+  deptId: string
+  deptName: string
+  baselineCount: number
+  basicCourseCount: number
+  advancedCourseCount: number
+  practicalCourseCount: number
+  basicAvgCompletedCount: number
+  advancedAvgCompletedCount: number
+  practicalAvgCompletedCount: number
+  basicAvgCompletionRate: number
+  advancedAvgCompletionRate: number
+  practicalAvgCompletionRate: number
+}
+
+/** 部门全员训战总览下钻（/department-employee-training-overview 单条） */
+export interface DepartmentEmployeeTrainingOverviewRow {
+  name: string
+  employeeNumber: string
+  jobCategory: string
+  jobSubcategory: string
+  firstDept: string
+  secondDept: string
+  thirdDept: string
+  fourthDept: string
+  fifthDept: string
+  lowestDept: string
+  basicTargetCourseCount: number
+  basicCompletedCount: number
+  basicCompletionRate: number
+  advancedTargetCourseCount: number
+  advancedCompletedCount: number
+  advancedCompletionRate: number
+  /** 实战目标课程数（/department-employee-training-overview） */
+  practicalTargetCourseCount?: number
+  /** 实战目标课程完课数 */
+  practicalCompletedCount?: number
+  /** 实战目标课程完课占比（百分比数值） */
+  practicalCompletionRate?: number
+  totalTargetCourseCount: number
+  totalCompletedCount: number
+  totalCompletionRate: number
+}
+
 export interface TrainingRoleSummaryRow {
   maturityLevel: string
   personCount: number
@@ -60,6 +105,22 @@ export interface TrainingRoleSummaryRow {
   intermediateCompletionRate: number
   advancedCompletionRate: number
   practiceCompletionRate: number
+}
+
+/** GET /trainning-courses/maturity-trainning-courses 单条（与后端 PositionAiMaturityCourseCompletionRateVO 一致） */
+export interface PositionAiMaturityCourseCompletionRateVO {
+  positionAiMaturity?: string
+  personType?: number
+  baselineCount?: number
+  basicCourseCount?: number
+  advancedCourseCount?: number
+  practicalCourseCount?: number
+  basicAvgCompletedCount?: number
+  advancedAvgCompletedCount?: number
+  practicalAvgCompletedCount?: number
+  basicAvgCompletionRate?: number
+  advancedAvgCompletionRate?: number
+  practicalAvgCompletionRate?: number
 }
 
 export interface TrainingExpertCadreSummaryRow {
@@ -563,9 +624,6 @@ export interface SchoolPersonalOverview {
   expectedCompletionDate: string
   status: '正常' | '轻度预警' | '滞后预警'
   statusType: 'success' | 'warning' | 'danger'
-  /** fetchSchoolDashboard 中由 personalCredit 展开，用于跳转到当前用户个人详情 */
-  employeeNumber?: string
-  lastName?: string
 }
 
 export interface SchoolRoleSummaryRow {
@@ -878,6 +936,7 @@ export interface CourseInfo {
   courseName: string // 课程名称
   courseNumber: string // 课程编码
   isCompleted: boolean // 是否已完成
+  isTargetCourse?: boolean // 是否目标课程
   bigType?: string // 课程主分类
   courseLink?: string // 课程链接
 }
@@ -921,7 +980,6 @@ export interface PersonalCredit {
 
 export interface CreditOverviewVO {
   categoryName: string
-  categoryCode: string
   baselineHeadcount: number
   maxScore: number
   minScore: number
@@ -948,9 +1006,6 @@ export interface SchoolCreditDetailResponseVO {
   pageNum: number
   pageSize: number
   pages: number
-  jobFamilies?: string[]
-  jobCategories?: string[]
-  jobSubCategories?: string[]
 }
 
 /**
@@ -968,4 +1023,22 @@ export interface SchoolCreditDetailRequest {
   queryType?: string
   pageNum?: number
   pageSize?: number
+}
+
+export interface SchoolRoleSummaryVO {
+  maturityLevel: string
+  baseline: number
+  maxCredits: number
+  minCredits: number
+  averageCredits: number
+  targetCredits: number
+  completionRate: number
+  scheduleTarget: number
+  status: string
+  statusType: 'success' | 'warning' | 'danger' | 'info'
+}
+
+export interface SchoolRoleSummaryResponseVO {
+  expertSummary: SchoolRoleSummaryVO[]
+  cadreSummary: SchoolRoleSummaryVO[]
 }

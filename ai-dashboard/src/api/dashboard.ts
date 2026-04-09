@@ -48,6 +48,9 @@ import type {
   TrainingDetailFilters,
   TrainingBattleRecord,
   TrainingCoursePlanRecord,
+  DepartmentCourseCompletionRateRow,
+  DepartmentEmployeeTrainingOverviewRow,
+  PositionAiMaturityCourseCompletionRateVO,
   TrainingPersonalOverviewRow,
   TrainingPlanningResource,
   TrainingRole,
@@ -1087,7 +1090,36 @@ export const fetchCertificationDashboard = async (
 export const fetchCertificationDetailData = async (
   id: string,
   _filters?: CertificationDetailFilters
-): Promise<CertificationDetailData> => {
+): Promise<{
+  summary: {
+    id: string;
+    name: string;
+    level: string;
+    participants: number;
+    passRate: number;
+    status: string;
+    updatedAt: string
+  };
+  certificationRecords: CertificationAuditRecord[];
+  appointmentRecords: AppointmentAuditRecord[];
+  filters: {
+    departmentTree: Awaited<{
+      certificateAudits: CertificationAuditRecord[];
+      appointmentAudits: AppointmentAuditRecord[]
+    }>;
+    jobFamilies: string[];
+    jobCategories: string[];
+    jobSubCategories: string[];
+    roles: ({ label: string; value: string } | { label: string; value: string } | { label: string; value: string } | {
+      label: string;
+      value: string
+    })[];
+    maturityOptions: ({ label: string; value: string } | { label: string; value: string } | {
+      label: string;
+      value: string
+    } | { label: string; value: string })[]
+  }
+}> => {
   await delay()
   const [auditData, deptTree] = await Promise.all([fetchCertificationAuditRecords(), fetchDepartmentTree()])
 
@@ -1164,45 +1196,148 @@ export const fetchTrainingDetail = async (
   }
 }
 
-export type PersonalCourseCompletionFetchResult =
-  | { ok: true; data: PersonalCourseCompletionResponse }
-  | { ok: false; message: string; code: number }
-
 /**
- * 获取个人课程完成情况（含失败原因，便于页面提示）
+ * 获取个人课程完成情况（/completion 接口）
+ * @param account 可选，工号；不传时后端从 cookie 获取当前用户
+ * @returns 个人课程完成情况数据
  */
-export const fetchPersonalCourseCompletionDetailed = async (
-  empNum?: string
-): Promise<PersonalCourseCompletionFetchResult> => {
+export const fetchPersonalCourseCompletion = async (
+  account?: string
+): Promise<PersonalCourseCompletionResponse | null> => {
   try {
-    const qs =
-      empNum != null && String(empNum).trim() !== ''
-        ? `?empNum=${encodeURIComponent(String(empNum).trim())}`
-        : ''
-    const response = await get<Result<PersonalCourseCompletionResponse>>(
-      `/personal-course/completion${qs}`
-    )
+    const url =
+      account != null && account.trim() !== ''
+        ? `/personal-course/completion?account=${encodeURIComponent(account.trim())}`
+        : '/personal-course/completion'
+    const response = await get<Result<PersonalCourseCompletionResponse>>(url)
     if (response.code === 200) {
-      return { ok: true, data: response.data }
+      return response.data
     }
-    console.warn('获取个人课程完成情况失败：', response.code, response.message)
-    return { ok: false, message: response.message || '请求失败', code: response.code }
+    console.warn('获取个人课程完成情况失败：', response.message)
+    return null
   } catch (error) {
     console.error('获取个人课程完成情况异常：', error)
-    const message = error instanceof Error ? error.message : '网络异常'
-    return { ok: false, message, code: -1 }
+    return null
   }
 }
 
 /**
- * 获取个人课程完成情况
- * @returns 个人课程完成情况数据
+ * 部门课程完成率：根据父部门ID返回下一层级各部门的课程完成率统计
+ * @param deptId 父部门ID（0 或二级部门时返回所有四级部门；三级返回四级子部门；四/五/六级返回下一层级子部门）
+ * @param personType 人员类型，当前仅处理 0
  */
-export const fetchPersonalCourseCompletion = async (
-  empNum?: string
-): Promise<PersonalCourseCompletionResponse | null> => {
-  const r = await fetchPersonalCourseCompletionDetailed(empNum)
-  return r.ok ? r.data : null
+export const fetchDepartmentCompletionRate = async (
+  deptId: string,
+  personType: number = 0
+): Promise<DepartmentCourseCompletionRateRow[]> => {
+  try {
+    const url = `/personal-course/department-completion-rate?deptId=${encodeURIComponent(deptId)}&personType=${personType}`
+    const response = await get<Result<DepartmentCourseCompletionRateRow[]>>(url)
+    if (response.code === 200 && Array.isArray(response.data)) {
+      return response.data
+    }
+    return []
+  } catch (error) {
+    console.error('获取部门课程完成率异常：', error)
+    return []
+  }
+}
+
+/**
+ * 部门全员训战总览（下钻）：根据部门ID返回该部门下全员训战明细
+ * @param deptId 部门ID（部门编码）
+ * @param personType 0 全员；1 干部；2 专家
+ * @param aiMaturity 岗位 AI 成熟度（可选）：L1、L2、L3；仅 personType 为 1 或 2 时生效
+ */
+export const fetchDepartmentEmployeeTrainingOverview = async (
+  deptId: string,
+  personType: number = 0,
+  aiMaturity?: string
+): Promise<DepartmentEmployeeTrainingOverviewRow[]> => {
+  try {
+    const params = new URLSearchParams({
+      deptId,
+      personType: String(personType),
+    })
+    if (aiMaturity != null && String(aiMaturity).trim() !== '') {
+      params.set('ai_maturity', String(aiMaturity).trim())
+    }
+    const url = `/personal-course/department-employee-training-overview?${params.toString()}`
+    const response = await get<Result<DepartmentEmployeeTrainingOverviewRow[]>>(url)
+    if (response.code === 200 && Array.isArray(response.data)) {
+      return response.data
+    }
+    return []
+  } catch (error) {
+    console.error('获取部门全员训战总览异常：', error)
+    return []
+  }
+}
+
+const MATURITY_LEVEL_ORDER = ['L1', 'L2', 'L3']
+
+const sortMaturityTrainingRows = (rows: TrainingRoleSummaryRow[]): TrainingRoleSummaryRow[] => {
+  return [...rows].sort((a, b) => {
+    const ka = String(a.maturityLevel ?? '')
+      .trim()
+      .toUpperCase()
+    const kb = String(b.maturityLevel ?? '')
+      .trim()
+      .toUpperCase()
+    const ia = MATURITY_LEVEL_ORDER.indexOf(ka)
+    const ib = MATURITY_LEVEL_ORDER.indexOf(kb)
+    const va = ia === -1 ? 999 : ia
+    const vb = ib === -1 ? 999 : ib
+    return va - vb
+  })
+}
+
+/**
+ * 后端为基础/进阶/实战三档；表格「高阶」列无对应字段，置 0。
+ */
+export const mapPositionAiMaturityToTrainingRoleSummaryRow = (
+  row: PositionAiMaturityCourseCompletionRateVO
+): TrainingRoleSummaryRow => {
+  const n = (v: number | undefined | null) =>
+    v != null && !Number.isNaN(Number(v)) ? Number(v) : 0
+  return {
+    maturityLevel: row.positionAiMaturity ?? '',
+    personCount: n(row.baselineCount),
+    beginnerCourses: n(row.basicCourseCount),
+    intermediateCourses: n(row.advancedCourseCount),
+    advancedCourses: 0,
+    practiceCourses: n(row.practicalCourseCount),
+    beginnerAvgLearners: n(row.basicAvgCompletedCount),
+    intermediateAvgLearners: n(row.advancedAvgCompletedCount),
+    advancedAvgLearners: 0,
+    practiceAvgLearners: n(row.practicalAvgCompletedCount),
+    beginnerCompletionRate: n(row.basicAvgCompletionRate),
+    intermediateCompletionRate: n(row.advancedAvgCompletionRate),
+    advancedCompletionRate: 0,
+    practiceCompletionRate: n(row.practicalAvgCompletionRate),
+  }
+}
+
+/**
+ * 专家/干部训战：按岗位 AI 成熟度汇总（personType 仅 1 干部、2 专家）
+ * @param deptId 部门编码，未选部门时传 0
+ */
+export const fetchMaturityTrainingCourses = async (
+  deptId: string,
+  personType: 1 | 2
+): Promise<TrainingRoleSummaryRow[]> => {
+  try {
+    const url = `/trainning-courses/maturity-trainning-courses?deptId=${encodeURIComponent(deptId)}&personType=${personType}`
+    const response = await get<Result<PositionAiMaturityCourseCompletionRateVO[]>>(url)
+    if (response.code === 200 && Array.isArray(response.data)) {
+      const mapped = response.data.map(mapPositionAiMaturityToTrainingRoleSummaryRow)
+      return sortMaturityTrainingRows(mapped)
+    }
+    return []
+  } catch (error) {
+    console.error('获取岗位AI成熟度训战统计异常：', error)
+    return []
+  }
 }
 
 export const fetchTrainingDashboard = async (
@@ -1360,17 +1495,11 @@ export const fetchCertificationAuditRecords = async (): Promise<{
 
 /**
  * 获取个人学分概览数据
- * @param opts.account 可选，与明细行 employeeId 一致，查询该员工的学分数据
+ * @returns 个人学分概览数据
  */
-export const fetchPersonalCreditOverview = async (opts?: {
-  account?: string
-}): Promise<PersonalCredit | null> => {
+export const fetchPersonalCreditOverview = async (): Promise<PersonalCredit | null> => {
   try {
-    const qs =
-      opts?.account != null && String(opts.account).trim() !== ''
-        ? `?account=${encodeURIComponent(String(opts.account).trim())}`
-        : ''
-    const response = await get<Result<PersonalCredit>>(`/api/personal-credit/overview${qs}`)
+    const response = await get<Result<PersonalCredit>>('/api/personal-credit/overview')
     if (response.code === 200) {
       return response.data
     }
@@ -1731,4 +1860,3 @@ export const fetchCadreAiCertificationOverview = async (): Promise<CadreAiCertif
     return null
   }
 }
-

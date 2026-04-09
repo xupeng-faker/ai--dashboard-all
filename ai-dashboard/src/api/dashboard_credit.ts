@@ -1,5 +1,11 @@
 import { get } from '../utils/request'
-import type { Result, CreditStatisticsResponseVO, SchoolCreditDetailResponseVO, SchoolCreditDetailRequest } from '../types/dashboard'
+import type {
+  Result,
+  CreditStatisticsResponseVO,
+  SchoolCreditDetailResponseVO,
+  SchoolCreditDetailRequest,
+  SchoolRoleSummaryResponseVO
+} from '../types/dashboard'
 
 /**
  * 获取职位学分总览
@@ -49,10 +55,9 @@ export const getDepartmentStatistics = async (deptCode?: string, role?: string):
 
 /**
  * 获取AI School学分数据明细列表（基线人数下钻）
- * @param params 查询参数
  */
 export const getSchoolCreditDetailList = async (
-  params: SchoolCreditDetailRequest
+    params: SchoolCreditDetailRequest
 ): Promise<SchoolCreditDetailResponseVO | null> => {
   try {
     const query = new URLSearchParams()
@@ -68,16 +73,38 @@ export const getSchoolCreditDetailList = async (
     query.append('pageNum', String(params.pageNum ?? 1))
     query.append('pageSize', String(params.pageSize ?? 50))
 
+    // ✅ 修正为后端实际路径
     const response = await get<Result<SchoolCreditDetailResponseVO>>(
-      `/api/school-credit-detail/list?${query.toString()}`
+        `/api/credit/statistics/detail?${query.toString()}`
     )
-    if (response.code === 200) {
-      return response.data
-    }
+    if (response.code === 200) return response.data
     console.warn('获取AI School学分数据明细失败：', response.message)
     return null
   } catch (error) {
     console.error('获取AI School学分数据明细异常：', error)
+    return null
+  }
+}
+
+/**
+ * 获取专家 & 干部学分总览
+ * @param deptCode 部门编码，不传时查全量
+ */
+export const getRoleSummary = async (
+    deptCode?: string
+): Promise<SchoolRoleSummaryResponseVO | null> => {
+  try {
+    const query = new URLSearchParams()
+    if (deptCode && deptCode !== '0') query.append('deptCode', deptCode)
+
+    const response = await get<Result<SchoolRoleSummaryResponseVO>>(
+        `/api/credit/statistics/role-summary?${query.toString()}`
+    )
+    if (response.code === 200) return response.data
+    console.warn('获取角色学分总览失败：', response.message)
+    return null
+  } catch (error) {
+    console.error('获取角色学分总览异常：', error)
     return null
   }
 }

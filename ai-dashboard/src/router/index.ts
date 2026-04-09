@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
+import { get } from '../utils/request'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -94,14 +95,13 @@ const routes: RouteRecordRaw[] = [
         props: true,
       },
       {
-        path: 'school/personal-credit-detail',
-        name: 'PersonalSchoolCreditDetail',
-        component: () => import('@/views/dashboard/PersonalTrainingDetail.vue'),
+        path: 'school/personal-detail',
+        name: 'SchoolPersonalTrainingDetail',
+        component: () => import('@/views/dashboard/SchoolPersonalDetail.vue'),
         meta: {
-          title: '个人课程学分详情',
+          title: '个人课程学分详情', // ← 改这里
           requiresAuth: true,
           keepAlive: false,
-          dashboardTab: 'school',
         },
       },
       {
@@ -118,7 +118,6 @@ const routes: RouteRecordRaw[] = [
         path: 'certification/detail/:id',
         name: 'CertificationDetail',
         component: () => import('@/views/dashboard/CertificationDetail.vue'),
-        props: true,
         meta: {
           title: 'AI任职认证看板详情',
           requiresAuth: true,
@@ -136,11 +135,19 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   if (to.meta.title) {
     document.title = `${to.meta.title} - AI转型IT看板`
   } else {
     document.title = 'AI转型IT看板'
+  }
+  if (to.name === 'Home') {
+    next()
+  }
+  const response = await get<any>(`/user-config/permissions`)
+  if (!response.data) {
+    next({ name: 'Home' })
+    return
   }
 
   if (to.meta.requiresAuth) {

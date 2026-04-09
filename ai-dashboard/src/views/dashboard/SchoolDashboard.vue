@@ -2,13 +2,14 @@
 import { computed, onActivated, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElButton, ElCard, ElCascader, ElCol, ElDialog, ElForm, ElFormItem, ElRow, ElSelect, ElSkeleton, ElTable, ElTableColumn, ElTag, ElMessage, ElPagination } from 'element-plus'
-import { fetchSchoolDashboard, fetchPersonalCreditOverview } from '@/api/dashboard'
-import { getPositionStatistics, getDepartmentStatistics, getSchoolCreditDetailList } from '@/api/dashboard_credit'
+import { fetchSchoolDashboard } from '@/api/dashboard'
 import type { SchoolCreditDetailResponseVO, SchoolCreditRecord } from '@/types/dashboard'
+import { getPositionStatistics, getDepartmentStatistics, getSchoolCreditDetailList, getRoleSummary } from '@/api/dashboard_credit'
+import type { SchoolRoleSummaryVO } from '@/types/dashboard'
 import { normalizeRoleOptions } from '@/constants/roles'
-import { DEV_MOCK_USER } from '@/utils/devMockAuth'
 import { useDepartmentFilter } from '@/composables/useDepartmentFilter'
 import CreditOverviewTable from '@/components/dashboard/CreditOverviewTable.vue'
+import { getUserIdFromAccount } from '@/utils/cookie'
 import type {
   SchoolAllStaffSummaryRow,
   SchoolDashboardData,
@@ -47,6 +48,28 @@ const drillParams = reactive({
   type: 'department' as 'department' | 'position'
 })
 
+// 2. 新增专家/干部数据的独立 ref（不再依赖 dashboardData）
+const expertSummary = ref<SchoolRoleSummaryVO[]>([])
+const cadreSummary = ref<SchoolRoleSummaryVO[]>([])
+const loadingRoleSummary = ref(false)
+
+// 3. 新增单独刷新方法
+const fetchRoleSummaryOnly = async () => {
+  loadingRoleSummary.value = true
+  const deptCode = resolveDeptIdForStats()
+  try {
+    const res = await getRoleSummary(deptCode)
+    if (res) {
+      expertSummary.value = res.expertSummary
+      cadreSummary.value  = res.cadreSummary
+    }
+  } catch (err) {
+    console.error('获取角色学分总览失败：', err)
+  } finally {
+    loadingRoleSummary.value = false
+  }
+}
+
 const {
   departmentTree: departmentOptions,
   cascaderProps,
@@ -55,6 +78,40 @@ const {
 } = useDepartmentFilter()
 const roleOptions = computed(() => normalizeRoleOptions(dashboardData.value?.filters.roles ?? []))
 
+const resolveDeptIdForStats = (): string | undefined => {
+  const path = filters.departmentPath
+  if (!path || path.length === 0) return undefined
+  const last = path[path.length - 1]
+  return (last != null && String(last).trim() !== '') ? String(last) : undefined
+}
+
+/** 仅刷新学分统计（切换角色视图时），不重新请求整页看板数据 */
+const fetchCreditStatsOnly = async () => {
+  if (!dashboardData.value) return
+  loadingPosition.value = true
+  loadingDepartment.value = true
+
+  const deptCode = resolveDeptIdForStats()
+
+  getPositionStatistics(deptCode, creditRole.value)
+      .then(res => {
+        positionData.value = res
+            ? [...res.statistics, ...(res.totalStatistics ? [res.totalStatistics] : [])]
+            : []
+      })
+      .catch(err => console.error('Position stats error:', err))
+      .finally(() => loadingPosition.value = false)
+
+  getDepartmentStatistics(deptCode, creditRole.value)
+      .then(res => {
+        departmentData.value = res
+            ? [...res.statistics, ...(res.totalStatistics ? [res.totalStatistics] : [])]
+            : []
+      })
+      .catch(err => console.error('Department stats error:', err))
+      .finally(() => loadingDepartment.value = false)
+}
+
 const fetchData = async () => {
   loading.value = true
   try {
@@ -62,53 +119,45 @@ const fetchData = async () => {
       role: filters.role,
       departmentPath: filters.departmentPath?.length ? [...filters.departmentPath] : undefined,
     }
-    
-    // 并行获取仪表盘数据和学分统计数据
+
     loadingPosition.value = true
     loadingDepartment.value = true
-    
-    // 分开处理，避免一个失败导致全部失败
-    fetchSchoolDashboard(payload)
-      .then(res => dashboardData.value = res)
-      .catch(err => console.error('Dashboard data error:', err))
+    loadingRoleSummary.value = true
 
-    // 获取当前选中的部门编码
-    const currentDeptCode = filters.departmentPath?.length 
-      ? filters.departmentPath[filters.departmentPath.length - 1] 
-      : undefined
-      
-    getPositionStatistics(currentDeptCode, creditRole.value)
-      .then(res => {
-        if (res) {
-          // 合并列表和总计
-          const list = [...res.statistics]
-          if (res.totalStatistics) {
-            list.push(res.totalStatistics)
+    fetchSchoolDashboard(payload)
+        .then(res => { dashboardData.value = res })
+        .catch(err => console.error('Dashboard data error:', err))
+
+    const deptCode = resolveDeptIdForStats()
+
+    getRoleSummary(deptCode)
+        .then(res => {
+          if (res) {
+            expertSummary.value = res.expertSummary
+            cadreSummary.value  = res.cadreSummary
           }
-          positionData.value = list
-        } else {
-          positionData.value = []
-        }
-      })
-      .catch(err => console.error('Position stats error:', err))
-      .finally(() => loadingPosition.value = false)
-      
-    getDepartmentStatistics(currentDeptCode, creditRole.value)
-      .then(res => {
-        if (res) {
-           // 合并列表和总计
-          const list = [...res.statistics]
-          if (res.totalStatistics) {
-            list.push(res.totalStatistics)
-          }
-          departmentData.value = list
-        } else {
-          departmentData.value = []
-        }
-      })
-      .catch(err => console.error('Department stats error:', err))
-      .finally(() => loadingDepartment.value = false)
-      
+        })
+        .catch(err => console.error('Role summary error:', err))
+        .finally(() => loadingRoleSummary.value = false)
+
+    getPositionStatistics(deptCode, creditRole.value)
+        .then(res => {
+          positionData.value = res
+              ? [...res.statistics, ...(res.totalStatistics ? [res.totalStatistics] : [])]
+              : []
+        })
+        .catch(err => console.error('Position stats error:', err))
+        .finally(() => loadingPosition.value = false)
+
+    getDepartmentStatistics(deptCode, creditRole.value)
+        .then(res => {
+          departmentData.value = res
+              ? [...res.statistics, ...(res.totalStatistics ? [res.totalStatistics] : [])]
+              : []
+        })
+        .catch(err => console.error('Department stats error:', err))
+        .finally(() => loadingDepartment.value = false)
+
   } catch (error) {
     console.error('获取School看板数据失败', error)
     ElMessage.error('获取部分数据失败，请重试')
@@ -118,16 +167,19 @@ const fetchData = async () => {
 }
 
 watch(
-  () => [filters.role, filters.departmentPath, creditRole.value],
-  () => {
-    fetchData()
-  },
-  { deep: true }
+    () => [filters.role, filters.departmentPath],
+    () => { fetchData() },
+    { deep: true }
+)
+
+watch(
+    () => creditRole.value,
+    () => { void fetchCreditStatsOnly() }
 )
 
 const resetFilters = () => {
   filters.role = '0'
-  filters.departmentPath = []
+  filters.departmentPath = ['ICT_BG', '0']  // 改：恢复初始值
 }
 
 const goToDetail = (query: Record<string, string | undefined>) => {
@@ -139,16 +191,22 @@ const goToDetail = (query: Record<string, string | undefined>) => {
 }
 
 const handleRoleSummaryDrill = (
-  row: SchoolRoleSummaryRow,
-  type: 'expert' | 'cadre',
-  field: string
+    row: SchoolRoleSummaryRow,
+    type: 'expert' | 'cadre',
+    field: string
 ) => {
-  goToDetail({
-    type,
-    maturityLevel: row.maturityLevel,
-    metric: field,
-    role: filters.role,
+  const resolved = router.resolve({
+    name: 'SchoolDetail',
+    params: { id: 'drill-down' },
+    query: {
+      type,
+      maturityLevel: row.maturityLevel,
+      metric: field,
+      role: filters.role,
+      hideRoleAndDept: 'true',   // ← 新增
+    },
   })
+  window.open(resolved.href, '_blank', 'noopener,noreferrer')
 }
 
 const handleAllStaffDrill = (row: SchoolAllStaffSummaryRow, field: string) => {
@@ -160,30 +218,13 @@ const handleAllStaffDrill = (row: SchoolAllStaffSummaryRow, field: string) => {
   })
 }
 
-/** 个人数据总览下钻：以 /api/personal-credit/overview 返回的 employeeNumber 为准，再进入个人课程学分详情（课程与学分接口均按该工号查询） */
-const handleOverviewDrill = async (_metric: string) => {
-  const credit = await fetchPersonalCreditOverview()
-  let emp =
-    credit?.employeeNumber != null && String(credit.employeeNumber).trim() !== ''
-      ? String(credit.employeeNumber).trim()
-      : ''
-  if (!emp && dashboardData.value?.personalOverview?.employeeNumber != null) {
-    emp = String(dashboardData.value.personalOverview.employeeNumber).trim()
-  }
-  // 本地演示：与 demo-token / Cookie wE001234 对齐，库内需有 seed_demo_login_user_credit.sql
-  if (!emp && import.meta.env.DEV) {
-    emp = DEV_MOCK_USER.employeeId
-  }
-  if (!emp) {
-    ElMessage.warning(
-      '未获取到当前用户工号。请确认已登录且 personal-credit/overview 能返回 employeeNumber，或已同步 t_personal_credit'
-    )
-    return
-  }
-  router.push({
-    name: 'PersonalSchoolCreditDetail',
-    query: { employeeId: emp },
+const handleOverviewDrill = (_metric: string) => {
+  const account = getUserIdFromAccount() ?? undefined
+  const resolved = router.resolve({
+    name: 'SchoolPersonalTrainingDetail',
+    query: { account },
   })
+  window.open(resolved.href, '_blank', 'noopener,noreferrer')
 }
 
 // 处理基线人数下钻 - 跳转到 SchoolDetail 页面，传递当前行的筛选条件
@@ -191,22 +232,34 @@ const handleCreditDrillDown = (row: CreditOverviewVO, field: string, type: 'depa
   if (field !== 'baselineHeadcount') return
 
   if (type === 'department') {
-    goToDetail({
-      type: 'department',
-      deptCode: row.categoryCode || '0',
-      deptLevel: '4',
-      role: creditRole.value,
+    const resolved = router.resolve({
+      name: 'SchoolDetail',
+      params: { id: 'drill-down' },
+      query: {
+        type: 'department',
+        deptCode: row.categoryCode || '0',
+        deptLevel: '4',
+        role: creditRole.value,
+        hideRoleAndDept: 'true',   // ← 新增
+      },
     })
+    window.open(resolved.href, '_blank', 'noopener,noreferrer')
   } else {
     const currentDeptCode = filters.departmentPath?.length
-      ? filters.departmentPath[filters.departmentPath.length - 1]
-      : '0'
-    goToDetail({
-      type: 'position',
-      deptCode: currentDeptCode,
-      jobCategory: row.categoryName,
-      role: creditRole.value,
+        ? filters.departmentPath[filters.departmentPath.length - 1]
+        : '0'
+    const resolved = router.resolve({
+      name: 'SchoolDetail',
+      params: { id: 'drill-down' },
+      query: {
+        type: 'position',
+        deptCode: currentDeptCode,
+        jobCategory: row.categoryName,
+        role: creditRole.value,
+        hideRoleAndDept: 'true',   // ← 新增
+      },
     })
+    window.open(resolved.href, '_blank', 'noopener,noreferrer')
   }
 }
 
@@ -251,6 +304,27 @@ const handleDrillDialogClose = () => {
   drillPageNum.value = 1
 }
 
+/** 点击弹窗明细表中的姓名，以 employeeId 作为 account 在新标签打开个人训战课程详情页 */
+const handleDrillNameClick = (employeeId: string) => {
+  const resolved = router.resolve({
+    name: 'SchoolPersonalTrainingDetail', // ← 改这里
+    query: { account: employeeId },
+  })
+  window.open(resolved.href, '_blank', 'noopener,noreferrer')
+}
+
+const formatPercent = (value: number) => `${(value ?? 0).toFixed(1)}%`
+const formatNumber = (value: number) => (value ?? 0).toFixed(1)
+const formatDate = (dateString: string): string => {
+  if (!dateString) return '-'
+  try {
+    const date = new Date(dateString)
+    return date.toISOString().split('T')[0]
+  } catch {
+    return dateString
+  }
+}
+
 const overviewItems = computed(() => {
   if (!dashboardData.value) return []
   const personal = dashboardData.value.personalOverview
@@ -278,7 +352,7 @@ const overviewItems = computed(() => {
     },
     {
       label: '学分达成日期',
-      value: personal.expectedCompletionDate,
+      value: formatDate(personal.expectedCompletionDate),
     },
     {
       label: '学分状态预警',
@@ -287,9 +361,6 @@ const overviewItems = computed(() => {
     },
   ]
 })
-
-const formatPercent = (value: number) => `${(value ?? 0).toFixed(1)}%`
-const formatNumber = (value: number) => (value ?? 0).toFixed(1)
 
 onMounted(() => {
   initDepartmentTree()
@@ -317,13 +388,13 @@ onActivated(() => {
       <el-form :inline="true" :model="filters" label-width="92">
         <el-form-item label="部门筛选">
           <el-cascader
-            v-model="filters.departmentPath"
-            :options="departmentOptions"
-            :props="cascaderProps"
-            placeholder="可选择至六级部门"
-            clearable
-            separator=" / "
-            style="width: 260px"
+              v-model="filters.departmentPath"
+              :options="departmentOptions"
+              :props="cascaderProps"
+              placeholder="可选择至六级部门"
+              clearable
+              separator=" / "
+              style="width: 260px"
           />
         </el-form-item>
         <el-form-item label="角色视图">
@@ -373,13 +444,13 @@ onActivated(() => {
             </el-select>
           </div>
         </template>
-        
+
         <CreditOverviewTable
-          title="部门学分总览"
-          :data="departmentData"
-          :loading="loadingDepartment"
-          type="department"
-          @drill-down="(row, field) => handleCreditDrillDown(row, field, 'department')"
+            title="部门学分总览"
+            :data="departmentData"
+            :loading="loadingDepartment"
+            type="department"
+            @drill-down="(row, field) => handleCreditDrillDown(row, field, 'department')"
         />
 
         <!-- 暂时隐藏职位学分总览表格，后续可能启用
@@ -393,11 +464,15 @@ onActivated(() => {
         -->
       </el-card>
 
-      <el-card shadow="hover" class="summary-card">
-        <template #header>
-          <h3>专家学分总览</h3>
-        </template>
-        <el-table :data="dashboardData.expertSummary" border style="width: 100%">
+      <el-card shadow="hover" class="summary-card" v-loading="loadingRoleSummary">
+        <template #header><h3>专家学分总览</h3></template>
+        <el-table
+            :data="expertSummary"
+            border
+            style="width: 100%"
+            :header-cell-style="{ background: 'rgba(58, 122, 254, 0.06)', color: '#2f3b52', fontSize: '12px', textAlign: 'center' }"
+            :cell-style="{ textAlign: 'center' }"
+        >
           <el-table-column prop="maturityLevel" label="专家岗位成熟度等级" width="180" />
           <el-table-column prop="baseline" label="专家人数" width="120">
             <template #default="{ row }">
@@ -446,11 +521,15 @@ onActivated(() => {
         </el-table>
       </el-card>
 
-      <el-card shadow="hover" class="summary-card">
-        <template #header>
-          <h3>干部学分总览</h3>
-        </template>
-        <el-table :data="dashboardData.cadreSummary" border style="width: 100%">
+      <el-card shadow="hover" class="summary-card" v-loading="loadingRoleSummary">
+        <template #header><h3>干部学分总览</h3></template>
+        <el-table
+            :data="cadreSummary"
+            border
+            style="width: 100%"
+            :header-cell-style="{ background: 'rgba(58, 122, 254, 0.06)', color: '#2f3b52', fontSize: '12px', textAlign: 'center' }"
+            :cell-style="{ textAlign: 'center' }"
+        >
           <el-table-column prop="maturityLevel" label="干部岗位成熟度等级" width="180" />
           <el-table-column prop="baseline" label="干部人数" width="120">
             <template #default="{ row }">
@@ -500,10 +579,10 @@ onActivated(() => {
       </el-card>
 
       <el-card
-        v-for="group in dashboardData.allStaffSummary.groups"
-        :key="group.title"
-        shadow="hover"
-        class="summary-card"
+          v-for="group in dashboardData.allStaffSummary.groups"
+          :key="group.title"
+          shadow="hover"
+          class="summary-card"
       >
         <template #header>
           <h3>全员学分总览表 - {{ group.title }}</h3>
@@ -561,24 +640,30 @@ onActivated(() => {
 
     <!-- 基线人数下钻明细弹窗 -->
     <el-dialog
-      v-model="drillDialogVisible"
-      :title="drillDialogTitle"
-      width="90%"
-      top="5vh"
-      destroy-on-close
-      @closed="handleDrillDialogClose"
+        v-model="drillDialogVisible"
+        :title="drillDialogTitle"
+        width="90%"
+        top="5vh"
+        destroy-on-close
+        @closed="handleDrillDialogClose"
     >
       <el-table
-        v-loading="drillLoading"
-        :data="drillData"
-        border
-        stripe
-        height="60vh"
-        style="width: 100%"
-        :header-cell-style="{ background: 'rgba(58, 122, 254, 0.06)', color: '#2f3b52', textAlign: 'center' }"
-        :cell-style="{ textAlign: 'center' }"
+          v-loading="drillLoading"
+          :data="drillData"
+          border
+          stripe
+          height="60vh"
+          style="width: 100%"
+          :header-cell-style="{ background: 'rgba(58, 122, 254, 0.06)', color: '#2f3b52', textAlign: 'center' }"
+          :cell-style="{ textAlign: 'center' }"
       >
-        <el-table-column prop="name" label="姓名" width="100" fixed="left" />
+        <el-table-column prop="name" label="姓名" width="100" fixed="left">
+          <template #default="{ row }">
+            <el-button link type="primary" class="drill-link" @click="handleDrillNameClick(row.employeeId)">
+              {{ row.name }}
+            </el-button>
+          </template>
+        </el-table-column>
         <el-table-column prop="employeeId" label="工号" width="120" />
         <el-table-column prop="jobFamily" label="职位族" width="120" />
         <el-table-column prop="jobCategory" label="职位类" width="120" />
@@ -615,13 +700,13 @@ onActivated(() => {
       <template #footer>
         <div class="dialog-footer">
           <el-pagination
-            v-model:current-page="drillPageNum"
-            v-model:page-size="drillPageSize"
-            :page-sizes="[10, 20, 50, 100]"
-            :total="drillTotal"
-            layout="total, sizes, prev, pager, next, jumper"
-            @size-change="loadDrillData"
-            @current-change="handleDrillPageChange"
+              v-model:current-page="drillPageNum"
+              v-model:page-size="drillPageSize"
+              :page-sizes="[10, 20, 50, 100]"
+              :total="drillTotal"
+              layout="total, sizes, prev, pager, next, jumper"
+              @size-change="loadDrillData"
+              @current-change="handleDrillPageChange"
           />
         </div>
       </template>

@@ -4,7 +4,7 @@ import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
 import { useRouter, useRoute } from 'vue-router'
 import { fetchSchoolDetailData } from '@/api/dashboard'
 import { useDepartmentFilter } from '@/composables/useDepartmentFilter'
-import type { SchoolCreditRecord, SchoolDetailData, SchoolDetailFilters } from '@/types/dashboard'
+import type { SchoolDetailData, SchoolDetailFilters } from '@/types/dashboard'
 import { normalizeRoleOptions } from '@/constants/roles'
 
 const props = defineProps<{ id: string }>()
@@ -12,6 +12,7 @@ const router = useRouter()
 const route = useRoute()
 const loading = ref(false)
 const detailData = ref<SchoolDetailData | null>(null)
+const hideRoleAndDept = computed(() => route.query.hideRoleAndDept === 'true')
 
 // 从 URL query 参数初始化 filters
 const initFiltersFromQuery = (): SchoolDetailFilters => {
@@ -21,20 +22,20 @@ const initFiltersFromQuery = (): SchoolDetailFilters => {
     positionMaturity: '全部',
     departmentPath: [],
   }
-  
+
   if (query.deptCode && query.deptCode !== '0') {
     filters.deptCode = query.deptCode as string
     filters.departmentPath = [query.deptCode as string]
   }
-  
+
   if (query.deptLevel) {
     filters.deptLevel = parseInt(query.deptLevel as string, 10)
   }
-  
+
   if (query.jobCategory) {
     filters.jobCategory = query.jobCategory as string
   }
-  
+
   return filters
 }
 
@@ -66,15 +67,16 @@ const handleFilterChange = () => {
   fetchDetail()
 }
 
-const formatPercent = (value: number) => `${value.toFixed(1)}%`
-
-const handlePersonalNameDrill = (row: SchoolCreditRecord) => {
-  if (!row.employeeId?.trim()) return
-  router.push({
-    name: 'PersonalSchoolCreditDetail',
-    query: { employeeId: row.employeeId.trim() },
+/** 点击姓名，以 employeeId 作为 account 在新标签打开个人训战课程详情页 */
+const handleNameDrill = (employeeId: string) => {
+  const resolved = router.resolve({
+    name: 'SchoolPersonalTrainingDetail',
+    query: { account: employeeId },
   })
+  window.open(resolved.href, '_blank', 'noopener,noreferrer')
 }
+
+const formatPercent = (value: number) => `${value.toFixed(1)}%`
 
 onMounted(() => {
   initDepartmentTree()
@@ -109,77 +111,77 @@ onActivated(() => {
 
     <el-card shadow="hover" class="filter-card" v-if="detailData">
       <el-row :gutter="16" align="middle">
-        <el-col :xs="24" :sm="12" :md="6">
+        <el-col :xs="24" :sm="12" :md="6" v-if="!hideRoleAndDept">
           <label>部门筛选：</label>
           <el-cascader
-            v-model="filters.departmentPath"
-            :options="departmentTree"
-            :props="cascaderProps"
-            placeholder="请选择部门"
-            clearable
-            :disabled="!!filters.deptCode"
-            @change="handleFilterChange"
-            style="width: 100%"
+              v-model="filters.departmentPath"
+              :options="departmentTree"
+              :props="cascaderProps"
+              placeholder="请选择部门"
+              clearable
+              :disabled="!!filters.deptCode"
+              @change="handleFilterChange"
+              style="width: 100%"
           />
         </el-col>
         <el-col :xs="24" :sm="12" :md="6">
           <label>职位族：</label>
           <el-select
-            v-model="filters.jobFamily"
-            placeholder="请选择职位族"
-            clearable
-            @change="handleFilterChange"
-            style="width: 100%"
+              v-model="filters.jobFamily"
+              placeholder="请选择职位族"
+              clearable
+              @change="handleFilterChange"
+              style="width: 100%"
           >
             <el-option
-              v-for="family in detailData.filters.jobFamilies"
-              :key="family"
-              :label="family"
-              :value="family"
+                v-for="family in detailData.filters.jobFamilies"
+                :key="family"
+                :label="family"
+                :value="family"
             />
           </el-select>
         </el-col>
         <el-col :xs="24" :sm="12" :md="6">
           <label>职位类：</label>
           <el-select
-            v-model="filters.jobCategory"
-            placeholder="请选择职位类"
-            clearable
-            @change="handleFilterChange"
-            style="width: 100%"
+              v-model="filters.jobCategory"
+              placeholder="请选择职位类"
+              clearable
+              @change="handleFilterChange"
+              style="width: 100%"
           >
             <el-option
-              v-for="category in detailData.filters.jobCategories"
-              :key="category"
-              :label="category"
-              :value="category"
+                v-for="category in detailData.filters.jobCategories"
+                :key="category"
+                :label="category"
+                :value="category"
             />
           </el-select>
         </el-col>
         <el-col :xs="24" :sm="12" :md="6">
           <label>职位子类：</label>
           <el-select
-            v-model="filters.jobSubCategory"
-            placeholder="请选择职位子类"
-            clearable
-            @change="handleFilterChange"
-            style="width: 100%"
+              v-model="filters.jobSubCategory"
+              placeholder="请选择职位子类"
+              clearable
+              @change="handleFilterChange"
+              style="width: 100%"
           >
             <el-option
-              v-for="subCategory in detailData.filters.jobSubCategories"
-              :key="subCategory"
-              :label="subCategory"
-              :value="subCategory"
+                v-for="subCategory in detailData.filters.jobSubCategories"
+                :key="subCategory"
+                :label="subCategory"
+                :value="subCategory"
             />
           </el-select>
         </el-col>
-        <el-col :xs="24" :sm="12" :md="6">
+        <el-col :xs="24" :sm="12" :md="6" v-if="!hideRoleAndDept">
           <label>角色：</label>
           <el-select
-            v-model="filters.role"
-            placeholder="请选择角色"
-            @change="handleFilterChange"
-            style="width: 100%"
+              v-model="filters.role"
+              placeholder="请选择角色"
+              @change="handleFilterChange"
+              style="width: 100%"
           >
             <el-option v-for="role in roleOptions" :key="role.value" :label="role.label" :value="role.value" />
           </el-select>
@@ -197,7 +199,7 @@ onActivated(() => {
         <el-table :data="detailData.records" border style="width: 100%" max-height="600">
           <el-table-column prop="name" label="姓名" width="100" fixed="left" align="center" header-align="center" show-overflow-tooltip>
             <template #default="{ row }">
-              <el-button link type="primary" class="name-drill-link" @click="handlePersonalNameDrill(row)">
+              <el-button link type="primary" class="drill-link" @click="handleNameDrill(row.employeeId)">
                 {{ row.name }}
               </el-button>
             </template>
@@ -316,9 +318,21 @@ onActivated(() => {
   }
 }
 
-.name-drill-link {
+.drill-link {
   font-weight: 600;
   padding: 0;
+  border-radius: 0;
+  color: $primary-color;
+  background: transparent;
+
+  &.is-link {
+    color: $primary-color;
+  }
+
+  &:hover {
+    background: transparent;
+    text-decoration: underline;
+  }
 }
 
 @media (max-width: 768px) {
